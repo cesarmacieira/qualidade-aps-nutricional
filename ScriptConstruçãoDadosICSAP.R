@@ -5,7 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
+#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
+setwd('C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional')
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -164,16 +165,23 @@ TesteDeNormalidade = function(x){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-icsap = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/ICSAP-2010-2019.xlsx",
-                       sheet=1)
-Gini.IVS = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Gini e IVS 2010.xlsx",
+# icsap = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/ICSAP-2010-2019.xlsx",
+#                        sheet=1)
+# Gini.IVS = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Gini e IVS 2010.xlsx",
+#                      sheet=1, detectDates=TRUE)
+
+icsap = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/ICSAP-2010-2019.xlsx",
+                  sheet=1)
+Gini.IVS = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Gini e IVS 2010.xlsx",
                      sheet=1, detectDates=TRUE)
 
 ####=====================
 #### Tratamento de dados
 ####=====================
-icsap1 = icsap %>% filter(FX_ETARIA != 'DE 80 ANOS A+')
-  
+head(icsap)
+DescritivaCat(icsap$FX_ETARIA)
+icsap1 = icsap %>% filter(FX_ETARIA == 'DE 20 A 59 ANOS' | FX_ETARIA == 'DE 60 A 79 ANOS')
+
 #Colocando 0 nas colunas de internações
 icsap1[c("ANEMIA","ANGINA","ASMA","DEFICIENCIAS_NUTRICIONAIS","DIABETES_MELITUS",
          "DOENCA_INFLAMATORIA_ORGAOS_PELVICOS_FEMININOS","DOENCAS_CEREBROVASCULARES",
@@ -197,7 +205,7 @@ Gini.IVS$IVS = as.numeric(Gini.IVS$IVS)
 Gini.IVS$IDHM = as.numeric(Gini.IVS$IDHM)
 DadosICSAP = left_join(icsap1 %>% select(-c(NomeUF,X34,TaxaICSAPPadronizada10000sem79anos)),
                        Gini.IVS %>% select(IBGE,Nome.da.UF,Nome.do.Município), by=c("MUNIC_RES"="IBGE"))
-write.xlsx(DadosICSAP, 'DadosICSAP.xlsx')
+#write.xlsx(DadosICSAP, 'DadosICSAP.xlsx')
 
 #Capitais
 DadosICSAP_Capitais = DadosICSAP %>%
@@ -205,7 +213,7 @@ DadosICSAP_Capitais = DadosICSAP %>%
          DIABETES_MELITUS,HIPERTENSAO) %>% 
   filter(Nome.do.Município == 'Porto Velho' | Nome.do.Município == 'Manaus' |
            (Nome.do.Município == 'Rio Branco' & Nome.da.UF == 'Acre') | (Nome.do.Município == 'Campo Grande' & Nome.da.UF == 'Mato Grosso do Sul')|
-           Nome.do.Município == 'Macapá' | Nome.do.Município == 'Brasília' |
+           Nome.do.Município == 'Macapá' | (Nome.da.UF == 'Distrito Federal' & Nome.do.Município == 'Brasília') |
            (Nome.do.Município == 'Boa Vista' & Nome.da.UF == 'Roraima') | Nome.do.Município == 'Cuiabá' |
            (Nome.do.Município == 'Palmas' & Nome.da.UF == 'Tocantins') | Nome.do.Município == 'São Paulo' |
            Nome.do.Município == 'Teresina' | Nome.do.Município == 'Rio de Janeiro' |
@@ -218,34 +226,37 @@ DadosICSAP_Capitais = DadosICSAP %>%
            Nome.do.Município == 'Aracaju' | Nome.do.Município == 'Natal' |
            Nome.do.Município == 'Vitória') %>%
   mutate(SomaICSAP = rowSums(select(., ANEMIA, DEFICIENCIAS_NUTRICIONAIS, DIABETES_MELITUS, HIPERTENSAO)),
-         TaxaICSAP = SomaICSAP/POP)
+         TaxaICSAP = SomaICSAP/POP,
+         FX_ETARIA = case_when(FX_ETARIA == 'DE 20 A 59 ANOS' ~ '20 a 59 anos',
+                               FX_ETARIA == 'DE 60 A 79 ANOS' ~ '60 a 79 anos'))
+DadosICSAP_Capitais %>% filter(Nome.do.Município == 'Brasília')
 write.xlsx(DadosICSAP_Capitais, 'DadosICSAP_Capitais.xlsx')
 
 #Estados
-DadosICSAP_Estados = DadosICSAP %>%
-  select(Nome.da.UF,Região,ANO_CMPT,POP,FX_ETARIA,SEXO,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO) %>%
-  group_by(FX_ETARIA,SEXO,Nome.da.UF,Região,ANO_CMPT) %>% 
-  summarise(Pop_Total = sum(POP, na.rm = T),
-            ANEMIA_Total = sum(ANEMIA, na.rm = T),
-            DEFICIENCIAS_NUTRICIONAIS_Total = sum(DEFICIENCIAS_NUTRICIONAIS, na.rm = T),
-            DIABETES_MELITUS_Total = sum(DIABETES_MELITUS, na.rm = T),
-            HIPERTENSAO_Total = sum(HIPERTENSAO, na.rm = T)) %>% as.data.frame() %>% 
-  mutate(SomaICSAP = rowSums(select(.,ANEMIA_Total,DEFICIENCIAS_NUTRICIONAIS_Total,DIABETES_MELITUS_Total,HIPERTENSAO_Total)),
-         TaxaICSAP = SomaICSAP/Pop_Total)
-write.xlsx(DadosICSAP_Estados, 'DadosICSAP_Estados.xlsx')
+# DadosICSAP_Estados = DadosICSAP %>%
+#   select(Nome.da.UF,Região,ANO_CMPT,POP,FX_ETARIA,SEXO,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO) %>%
+#   group_by(FX_ETARIA,SEXO,Nome.da.UF,Região,ANO_CMPT) %>% 
+#   summarise(Pop_Total = sum(POP, na.rm = T),
+#             ANEMIA_Total = sum(ANEMIA, na.rm = T),
+#             DEFICIENCIAS_NUTRICIONAIS_Total = sum(DEFICIENCIAS_NUTRICIONAIS, na.rm = T),
+#             DIABETES_MELITUS_Total = sum(DIABETES_MELITUS, na.rm = T),
+#             HIPERTENSAO_Total = sum(HIPERTENSAO, na.rm = T)) %>% as.data.frame() %>% 
+#   mutate(SomaICSAP = rowSums(select(.,ANEMIA_Total,DEFICIENCIAS_NUTRICIONAIS_Total,DIABETES_MELITUS_Total,HIPERTENSAO_Total)),
+#          TaxaICSAP = SomaICSAP/Pop_Total)
+# write.xlsx(DadosICSAP_Estados, 'DadosICSAP_Estados.xlsx')
 
 #Regiões
-DadosICSAP_Regioes = DadosICSAP %>%
-  select(Região,ANO_CMPT,POP,FX_ETARIA,SEXO,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO) %>%
-  group_by(FX_ETARIA,SEXO,Região,ANO_CMPT) %>% 
-  summarise(Pop_Total = sum(POP, na.rm = T),
-            ANEMIA_Total = sum(ANEMIA, na.rm = T),
-            DEFICIENCIAS_NUTRICIONAIS_Total = sum(DEFICIENCIAS_NUTRICIONAIS, na.rm = T),
-            DIABETES_MELITUS_Total = sum(DIABETES_MELITUS, na.rm = T),
-            HIPERTENSAO_Total = sum(HIPERTENSAO, na.rm = T)) %>% as.data.frame() %>% 
-  mutate(SomaICSAP = rowSums(select(.,ANEMIA_Total,DEFICIENCIAS_NUTRICIONAIS_Total,DIABETES_MELITUS_Total,HIPERTENSAO_Total)),
-         TaxaICSAP = SomaICSAP/Pop_Total)
-write.xlsx(DadosICSAP_Regioes, 'DadosICSAP_Regioes.xlsx')
+# DadosICSAP_Regioes = DadosICSAP %>%
+#   select(Região,ANO_CMPT,POP,FX_ETARIA,SEXO,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO) %>%
+#   group_by(FX_ETARIA,SEXO,Região,ANO_CMPT) %>% 
+#   summarise(Pop_Total = sum(POP, na.rm = T),
+#             ANEMIA_Total = sum(ANEMIA, na.rm = T),
+#             DEFICIENCIAS_NUTRICIONAIS_Total = sum(DEFICIENCIAS_NUTRICIONAIS, na.rm = T),
+#             DIABETES_MELITUS_Total = sum(DIABETES_MELITUS, na.rm = T),
+#             HIPERTENSAO_Total = sum(HIPERTENSAO, na.rm = T)) %>% as.data.frame() %>% 
+#   mutate(SomaICSAP = rowSums(select(.,ANEMIA_Total,DEFICIENCIAS_NUTRICIONAIS_Total,DIABETES_MELITUS_Total,HIPERTENSAO_Total)),
+#          TaxaICSAP = SomaICSAP/Pop_Total)
+# write.xlsx(DadosICSAP_Regioes, 'DadosICSAP_Regioes.xlsx')
 
 ####========
 #### Extras
