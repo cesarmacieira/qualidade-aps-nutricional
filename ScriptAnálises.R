@@ -213,9 +213,6 @@ Tabela1 =
 # 4 - Evolução das taxas de ICSAP
 # 5 - Evolução das notas do PMAQ
 
-AnovaTeste(dados$plano_saude_nao_prop,dados$ano)$tabela
-AnovaTeste(dados$IMC_i_media,dados$ano)$tabela
-KruskalTeste(dados[['diab_prop']], dados$ano)$tabela
 variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano_saude_nao_prop",
               "IMC_media","IMC_cat_baixo_prop","IMC_cat_excesso_prop","IMC_i_media",
               "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
@@ -223,5 +220,23 @@ variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano
               "flvdia_media","flvreco_prop","refritl5_prop","feijao5_prop",
               "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota")
+variaveis2 = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano_saude_nao_prop",
+               "IMC_media","IMC_cat_baixo_prop","IMC_cat_excesso_prop","IMC_i_media",
+               "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
+               "flvreg_prop","hortadia_media","sofrutadia_media","frutadia_media",
+               "flvdia_media","flvreco_prop","refritl5_prop",#"feijao5_prop",
+               "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
+               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota")
+
+AnovaTeste(dados$plano_saude_nao_prop,dados$ano)$tabela
+AnovaTeste(dados$IMC_i_media,dados$ano)$tabela
+
+KruskalTeste(dados$feijao5_prop,dados$ano)$C.Multiplas
+round(AnovaTeste(dados$plano_saude_nao_prop,dados$ano)$C.Multiplas,4)
+round(AnovaTeste(dados$IMC_i_media,dados$ano)$C.Multiplas,4)
+
 Tabela2 = do.call(rbind,lapply(variaveis, function(variavel) {KruskalTeste(dados[[variavel]], dados$ano)$tabela}))
-write.xlsx(Tabela2 %>% as.data.frame(), 'Tabela 2.xlsx', rowNames = T)
+Tabela3 = do.call(rbind,lapply(variaveis2, function(variavel) {KruskalTeste(dados[[variavel]], dados$ano)$C.Multiplas}))
+#write.xlsx(Tabela2 %>% as.data.frame(), 'Tabela 2.xlsx', rowNames = T)
+#write.xlsx(Tabela3 %>% as.data.frame(), 'Tabela 3.xlsx', rowNames = T)
+#write.xlsx(KruskalTeste(dados$feijao5_prop,dados$ano)$C.Multiplas %>% as.data.frame(),'CM Feijão5_prop.xlsx', rowNames = T)
