@@ -14,9 +14,6 @@ setwd('C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional
 if(!require(openxlsx)){ install.packages("openxlsx"); require(openxlsx)}#Ler e exportar excel
 if(!require(purrr)){ install.packages("purrr"); require(purrr)}#Programação funcional
 if(!require(tidyverse)){ install.packages("tidyverse"); require(tidyverse)}#Manipulação de dados
-#if(!require(stringr)){ install.packages("stringr"); require(stringr)}#Strings
-if(!require(ggplot2)){ install.packages("ggplot2"); require(ggplot2)}
-if(!require(haven)){ install.packages("haven"); require(haven)}
 
 ####=========
 #### Funções

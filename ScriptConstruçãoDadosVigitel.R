@@ -14,8 +14,6 @@ setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional
 if(!require(openxlsx)){ install.packages("openxlsx"); require(openxlsx)}#Ler e exportar excel
 if(!require(purrr)){ install.packages("purrr"); require(purrr)}#Programação funcional
 if(!require(tidyverse)){ install.packages("tidyverse"); require(tidyverse)}#Manipulação de dados
-#if(!require(stringr)){ install.packages("stringr"); require(stringr)}#Strings
-if(!require(ggplot2)){ install.packages("ggplot2"); require(ggplot2)}
 if(!require(haven)){ install.packages("haven"); require(haven)}
 
 ####=========
@@ -167,20 +165,20 @@ TesteDeNormalidade = function(x){
 ####=============================
 # vigitel_originais = haven::read_dta("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta")
 # vigitel_originais = haven::read_dta("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta")
-# 
+
 # vigitel_originais %>% filter(ano == 2014) %>% select(q76) %>% map(DescritivaCat)
 # vigitel_originais %>% filter(ano == 2018) %>% select(q15) %>% map(DescritivaCat)
 
 # vigitel = vigitel_originais %>% filter(ano >= 2010 & ano <= 2019) %>% 
-#    select(ordem,pesorake,ano,cidade,regiao,q6,q7,civil,q8a,q8b,q8_anos,q88,
-#           q9,q9_i,q11,q11_i,q16,q25,q27,q18,q20,q26,q28,q29,q15,
-#           r301_a,r301_b,r301_c,r301_d,r301_e,r301_g,r301_l,
-#           r302_a,r302_b,r302_c,r302_d,r302_e,r302_f,r302_g,r302_h,r302_i,r302_j,r302_k,r302_l,r302_m,
-#           r144a,r144b,q75,q76)
-# write.xlsx(vigitel %>% as.data.frame(), 'Dados Catarina Vigitel 05-03-2024.xlsx', rowNames=F)
+#   select(ordem,pesorake,ano,cidade,regiao,q6,q7,civil,q8a,q8b,q8_anos,q88,
+#          q9,q9_i,q11,q11_i,q16,q25,q27,q18,q20,q26,q28,q29,q15,
+#          r301_a,r301_b,r301_c,r301_d,r301_e,r301_g,r301_l,
+#          r302_a,r302_b,r302_c,r302_d,r302_e,r302_f,r302_g,r302_h,r302_i,r302_j,r302_k,r302_l,r302_m,
+#          r144a,r144b,q75,q76,q76a)
+# write.xlsx(vigitel %>% as.data.frame(), 'Dados Catarina Vigitel 21-03-2024.xlsx', rowNames=F)
 
 #vigitel = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel 05-03-2024.xlsx", sheet = 1)
-vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 05-03-2024.xlsx", sheet = 1)
+vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
 
 ####=====================
 #### Tratamento de dados
@@ -226,7 +224,10 @@ vigitel$feijao5 = ifelse(vigitel$q15 == 3 | vigitel$q15 == 4, 1, 0)
 
 vigitel$hart = ifelse(vigitel$q75 == 1, 1, 0)
 
-vigitel$diab = ifelse(vigitel$q76 == 1, 1, 0)
+vigitel$diab = case_when((vigitel$q76 != 1 & vigitel$ano != 2014) ~ 0,
+                         (vigitel$q76 == 1 & vigitel$ano != 2014) ~ 1,
+                         (vigitel$q76a != 1 & vigitel$ano == 2014) ~ 0, 
+                         (vigitel$q76a == 1 & vigitel$ano == 2014) ~ 1)
 
 # vigitel[c('r301_a','r301_b','r301_c','r301_d','r301_e','r301_g','r301_l','r302_a','r302_b','r302_c','r302_d','r302_e','r302_f','r302_g','r302_h','r302_i','r302_j','r302_k','r302_l','r302_m')] = 
 #   lapply(vigitel[c('r301_a','r301_b','r301_c','r301_d','r301_e','r301_g','r301_l','r302_a','r302_b','r302_c','r302_d','r302_e','r302_f','r302_g','r302_h','r302_i','r302_j','r302_k','r302_l','r302_m')], as.numeric)
@@ -294,13 +295,11 @@ vigitel$q8a_2 = case_when(vigitel$q8a == '1' ~ 'Curso primário',
                           vigitel$q8a == '777' ~ 'Não sabe',
                           vigitel$q8a == '888' ~ 'Não quis responder')
 
-vigitel[vigitel == '888'] = NA
-vigitel[vigitel == '777'] = NA
 DescritivaCat(vigitel$q6)
 vigitel$idade_cat = case_when(vigitel$q6 <= 19 ~ '19 anos ou menos',
                               vigitel$q6 >= 20 & vigitel$q6 <= 59 ~ '20 a 59 anos',
                               vigitel$q6 >= 60 & vigitel$q6 <= 79 ~ '60 a 79 anos',
-                              vigitel$q6 >= 80 ~ '80 anos ou mais',)
+                              vigitel$q6 >= 80 ~ '80 anos ou mais')
 
 vigitel$civil_uniaoest_casado = case_when(vigitel$civil == '1' | vigitel$civil == '4' | vigitel$civil == '5' ~ 0,
                                           vigitel$civil == '2' | vigitel$civil == '3' ~ 1)
@@ -342,7 +341,7 @@ dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 a
          q16,hortareg,q25,q27,frutareg,flvreg,q18,cruadia,cruadia_cat,q20,cozidadia,cozidadia_cat,hortadia,q26,sucodia,
          q28,sofrutadia,frutadia,flvdia,flvreco,q29,refritl5,q15,feijao5,q75,hart,q76,diab)
 
-write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 20-03-2024.xlsx', rowNames = F)
+write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 21-03-2024.xlsx', rowNames = F)
 
 ####==================================
 #### Agrupando por ano, cidade e sexo
@@ -395,8 +394,8 @@ dados_feijao5_prop = dados %>% filter(!is.na(feijao5)) %>% group_by(ano, cidade_
   summarize(feijao5_prop = sum(feijao5 * pesorake) / sum(pesorake)) %>% as.data.frame()
 dados_hart_media = dados %>% filter(!is.na(hart)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
   summarize(hart_media = weighted.mean(hart, pesorake)) %>% as.data.frame()
-dados_diab_media = dados %>% filter(!is.na(diab)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
-  summarize(diab_media = weighted.mean(diab, pesorake)) %>% as.data.frame()
+dados_diab_prop = dados %>% filter(!is.na(diab)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+  summarize(diab_prop = sum(diab * pesorake) / sum(pesorake)) %>% as.data.frame()
 
 dados_agg1 = left_join(dados_idade, dados_civil_uniaoest_casado_prop)
 dados_agg2 = left_join(dados_agg1, dados_anos_de_estudo)
@@ -421,8 +420,8 @@ dados_agg20 = left_join(dados_agg19, dados_flvreco_prop)
 dados_agg21 = left_join(dados_agg20, dados_refritl5_prop)
 dados_agg22 = left_join(dados_agg21, dados_feijao5_prop)
 dados_agg23 = left_join(dados_agg22, dados_hart_media)
-dados_agg24 = left_join(dados_agg23, dados_diab_media)
+dados_agg24 = left_join(dados_agg23, dados_diab_prop)
 
 dados_agg25 = dados_agg24 %>% rename(sexo = q7_2, cidade = cidade_2)
 
-#write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 20-03-2024.xlsx', rowNames = F)
+write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 21-03-2024.xlsx', rowNames = F)
