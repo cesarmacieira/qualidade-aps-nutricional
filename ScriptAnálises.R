@@ -14,7 +14,6 @@ setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional
 if(!require(openxlsx)){ install.packages("openxlsx"); require(openxlsx)}#Ler e exportar excel
 if(!require(purrr)){ install.packages("purrr"); require(purrr)}#Programação funcional
 if(!require(tidyverse)){ install.packages("tidyverse"); require(tidyverse)}#Manipulação de dados
-if(!require(plm)){ install.packages("plm"); require(plm)}
 
 ####=========
 #### Funções
@@ -81,7 +80,6 @@ QuiQuadrado_Fisher = function(x, y, type.sum, teste){
   if(teste=="chisq.simulate"){
     Valor_p = chisq.test(t0, simulate.p.value=TRUE, B=10000)$p.value
   }
-  
   t4 = cbind(t3, Valor_p)
   return(t4)
 }
@@ -99,10 +97,31 @@ KruskalTeste = function(y, z, more = F){
   tab = cbind(tab, p_valor)
   colnames(tab)= c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p")
   rownames(tab)= levels(factor(z))
-  
   if(!require(PMCMRplus)){ install.packages("PMCMRplus"); require(PMCMRplus) }
   #CM = posthoc.kruskal.nemenyi.test(y ~ factor(z), dist="Chisq")$p.value
   CM = kwAllPairsNemenyiTest(y ~ factor(z), dist="Chisquare")$p.value
+  model=list(tabela=tab, C.Multiplas=CM)
+  model
+}
+
+FriedmanTeste = function(y, z, id, more = F){
+  dados = data.frame(y = y, grupos = z, id = id)
+  dados_agg = dados %>% select(y,grupos,id) %>% group_by(grupos,id) %>%
+    summarize(media = mean(y, na.rm = TRUE))
+  tab = matrix(NA, length(levels(factor(dados_agg$grupos))), 10)
+  for(i in 1:length(levels(factor(dados_agg$grupos)))){ 
+    desc = tapply(dados_agg$media, factor(dados_agg$grupos),  basic.stats)[i]
+    desc1 = unlist(desc)
+    for(j in 1:10){ 
+      tab[i,j] = desc1[j]
+    }
+  }
+  p_valor = rep(friedman.test(media ~ grupos | id, data = dados_agg)$p.value, length(levels(factor(dados_agg$grupos))))
+  tab = cbind(tab, p_valor)
+  colnames(tab)= c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p")
+  rownames(tab)= levels(factor(dados_agg$grupos))
+  dados_CM = dados_agg %>% na.omit()
+  CM = pairwise.wilcox.test(dados_CM$media, factor(dados_CM$grupos), p.adjust.method = "bonferroni")$p.value
   model=list(tabela=tab, C.Multiplas=CM)
   model
 }
@@ -123,7 +142,7 @@ WilcoxonDependente = function(y, x, more = F) {
   return(tab)
 }
 
-AnovaTeste = function(y, z, more = FALSE){
+AnovaIndepTeste = function(y, z, CM_teste = "bonferroni", more = FALSE){
   tab = matrix(NA, length(levels(factor(z))), 10)
   for(i in 1:length(levels(factor(z)))){ 
     desc = tapply(y, factor(z),  basic.stats)[i]
@@ -132,18 +151,46 @@ AnovaTeste = function(y, z, more = FALSE){
       tab[i,j] = desc1[j]
     }
   }
-  anova_result <- summary(aov(y ~ factor(z)))
-  p_valor_anova <- anova_result[[1]]$"Pr(>F)"[1]
-  if(!require(PMCMRplus)){ 
-    install.packages("PMCMRplus")
-    require(PMCMRplus) 
+  anova_result = summary(aov(y ~ factor(z)))
+  p_valor_anova = anova_result[[1]]$"Pr(>F)"[1]
+  #CM = pairwise.t.test(y, factor(z), p.adjust.method = "bonferroni")$p.value
+  if(CM_teste == "tukey") {
+    CM = TukeyHSD(aov(y ~ factor(z)))$`factor(z)`
+  } else if(CM_teste == "bonferroni") {
+    if(!require(PMCMRplus)){ 
+      install.packages("PMCMRplus")
+      require(PMCMRplus) 
+    }
+    CM = pairwise.t.test(y, factor(z), p.adjust.method = "bonferroni")$p.value
   }
-  CM <- pairwise.t.test(y, factor(z), p.adjust.method = "bonferroni")$p.value
-  
   tab = cbind(tab, p_valor_anova)
   colnames(tab)= c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p_ANOVA")
   rownames(tab)= levels(factor(z))
-  
+  model=list(tabela=tab, C.Multiplas=CM)
+  model
+}
+
+AnovaDepTeste = function(y, z, unid_amostral, CM_teste = "tukey", more = FALSE){
+  tab = matrix(NA, length(levels(factor(z))), 10)
+  for(i in 1:length(levels(factor(z)))){ 
+    desc = tapply(y, factor(z),  basic.stats)[i]
+    desc1 = unlist(desc)
+    for(j in 1:10){ 
+      tab[i,j] = desc1[j]
+    }
+  }
+  anova_result = aov(y ~ factor(z) + Error(factor(unid_amostral)), data = data.frame(y, z, unid_amostral))
+  p_valor_anova = summary(anova_result)[[1]]$"Pr(>F)"[1]
+  #CM = pairwise.t.test(y, factor(z), p.adjust.method = "bonferroni")$p.value
+  if(CM_teste == "tukey") {
+    CM = TukeyHSD(aov(y ~ factor(z)))$`factor(z)`
+  } else if(CM_teste == "bonferroni") {
+    if(!require(PMCMRplus)){install.packages("PMCMRplus"); require(PMCMRplus)}
+    CM = pairwise.t.test(y, factor(z), p.adjust.method = "bonferroni")$p.value
+  }
+  tab = cbind(tab, p_valor_anova)
+  colnames(tab)= c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p_ANOVA")
+  rownames(tab)= levels(factor(z))
   model=list(tabela=tab, C.Multiplas=CM)
   model
 }
@@ -156,7 +203,7 @@ TesteTpareado = function(y, x, more = F) {
   return(tab)
 }
 
-TesteT = function(y, x, more = F) {
+TesteTindep = function(y, x, more = F) {
   desc = t(data.frame(tapply(y, factor(x),  basic.stats)[1], tapply(y, factor(x),  basic.stats)[2]))
   p.value = t.test(y ~ x, exact = FALSE, paired = F)$p.value
   tab = data.frame(desc, p.value)
@@ -185,30 +232,49 @@ TesteDeNormalidade = function(x){
   return(tabela)
 }
 
+TesteDeNormalidadeGrupos = function(y, z){
+  if(!require(dgof)){ install.packages("dgof"); require(dgof)}#Teste de Kolmogorov-Smirnov
+  if(!require(nortest)){ install.packages("nortest"); require(nortest)}#Anderson-Darling
+  dados = data.frame(y = y, Grupos = as.factor(z))
+  if(dim(dados)[1] < 5000){
+    result = dados %>% group_by(Grupos)%>% na.omit() %>%
+      summarise(ShapiroWilk = round(shapiro.test(y)$p.value,3),
+                ShapiroFrancia = round(sf.test(y)$p.value,3),
+                AndersonDarling = round(ad.test(y)$p.value,3),
+                KolmogorovSmirnov = round(ks.test(y, "pnorm", 
+                                                  mean(y, na.rm = T), 
+                                                  sd(y, na.rm = T))$p.value,3),
+                Lilliefors = round(lillie.test(y)$p.value,3),
+                CramerVonMises = round(cvm.test(y)$p.value,3)) %>% na.omit()
+  }else{
+    result = dados %>% group_by(Grupos) %>% na.omit() %>%
+      summarise(ShapiroWilk = "N > 5000",
+                ShapiroFrancia = "N > 5000",
+                AndersonDarling = round(ad.test(y)$p.value,3),
+                KolmogorovSmirnov = round(ks.test(y, "pnorm", 
+                                                  mean(y, na.rm = T), 
+                                                  sd(y, na.rm = T))$p.value,3),
+                Lilliefors = round(lillie.test(y)$p.value,3),
+                CramerVonMises = round(cvm.test(y)$p.value,3))
+  }
+  return(result)
+}
+
+HomogeneidadeVariancias = function(y, z){
+  if(!require(car)){ install.packages("car"); require(car)}
+  valor_p_Levene = leveneTest(y ~ as.factor(z))$`Pr(>F)`[1]
+  return(valor_p_Levene)
+}
+
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
 #dados = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel ICSAP PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM 28-03-2024.xlsx", sheet = 1)
-dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte 28-03-2024.xlsx", sheet = 1)
+dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
 
-####==========
-#### Análises
-####==========
-#cruadia_cat_prop, cozidadia_cat_prop e sucodia_media são compostos por 0's ou 1's
-
-Tabela1 = 
-  do.call(rbind,dados %>% select(idade_media,civil_uniaoest_casado_prop,anos_de_estudo,plano_saude_nao_prop,IMC_media,
-                                 IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
-                                 hortareg_prop,frutareg_prop,flvreg_prop,hortadia_media,
-                                 sofrutadia_media,frutadia_media,flvdia_media,flvreco_prop,refritl5_prop,feijao5_prop,
-                                 hart_media,diab_prop,POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,
-                                 SomaICSAP,TaxaICSAP,Nota,População,Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,IVS,IDHM,Gini) %>% 
-            map(TesteDeNormalidade))
-write.xlsx(Tabela1 %>% as.data.frame(), 'Tabela 1.xlsx')
-
-####=====================
-#### Comparações por ano
-####=====================
+####============================
+#### Distribuição das variáveis
+####============================
 variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano_saude_nao_prop",
               "IMC_media","IMC_cat_baixo_prop","IMC_cat_excesso_prop","IMC_i_media",
               "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
@@ -216,22 +282,65 @@ variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano
               "flvdia_media","flvreco_prop","refritl5_prop","feijao5_prop",
               "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota",
-              "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini")
-variaveis2 = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano_saude_nao_prop",
-               "IMC_media","IMC_cat_baixo_prop","IMC_cat_excesso_prop","IMC_i_media",
-               "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
-               "flvreg_prop","hortadia_media","sofrutadia_media","frutadia_media",
-               "flvdia_media","flvreco_prop","refritl5_prop",#"feijao5_prop",
-               "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
-               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota",
-               "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini")
+              "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini",
+              "Q1_media","Q2_media","Q3_media","Q4_media","Q5_media","Q6_media","Q7_media","Q8_media","Q9_prop","Q10_media",
+              "Q11_media","Q12_media","Q13_media","Q14_prop","Q15_prop","Q16_prop","Q17_prop","Q18_prop","Q19_media","Q20_prop",
+              "Q21_prop","Q22_prop","Q23_prop","Q24_prop","Q25_prop","Q26_prop","Q27_prop","Q28_prop","Q29_prop","Q30_prop")
 
-AnovaTeste(dados$plano_saude_nao_prop,dados$ano)$tabela
-AnovaTeste(dados$IMC_i_media,dados$ano)$tabela
+#cruadia_cat_prop, cozidadia_cat_prop e sucodia_media são compostos por 0's ou 1's
+Tabela1 = 
+  do.call(rbind,dados %>% select(idade_media,civil_uniaoest_casado_prop,anos_de_estudo,plano_saude_nao_prop,IMC_media,
+                                 IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
+                                 hortareg_prop,frutareg_prop,flvreg_prop,hortadia_media,
+                                 sofrutadia_media,frutadia_media,flvdia_media,flvreco_prop,refritl5_prop,feijao5_prop,
+                                 hart_media,diab_prop,POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,
+                                 SomaICSAP,TaxaICSAP,Nota,População,Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,IVS,IDHM,Gini,
+                                 Q1_media,Q2_media,Q3_media,Q4_media,Q5_media,Q6_media,Q7_media,Q8_media,Q9_prop,Q10_media,
+                                 Q11_media,Q12_media,Q13_media,Q14_prop,Q15_prop,Q16_prop,Q17_prop,Q18_prop,Q19_media,Q20_prop,
+                                 Q21_prop,Q22_prop,Q23_prop,Q24_prop,Q25_prop,Q26_prop,Q27_prop,Q28_prop,Q29_prop,Q30_prop) %>% 
+            map(TesteDeNormalidade))
+#write.xlsx(Tabela1 %>% as.data.frame(), 'Tabela 1.xlsx')
 
-KruskalTeste(dados$feijao5_prop,dados$ano)$C.Multiplas
-round(AnovaTeste(dados$plano_saude_nao_prop,dados$ano)$C.Multiplas,4)
-round(AnovaTeste(dados$IMC_i_media,dados$ano)$C.Multiplas,4)
+Tabela1 = lapply(variaveis, function(var) {TesteDeNormalidadeGrupos(dados[[var]], dados$ano)}) %>% bind_rows()
+#HomogeneidadeVariancias(dados$plano_saude_nao_prop, dados$ano)
+#HomogeneidadeVariancias(dados$IMC_i_media, dados$ano)
+
+####=====================
+#### Comparações por ano
+####=====================
+dados_20a79 = dados %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos')
+dados_CO = dados_20a79 %>% filter(Região == 'Centro-Oeste')
+dados_ND = dados_20a79 %>% filter(Região == 'Nordeste')
+dados_NT = dados_20a79 %>% filter(Região == 'Norte')
+dados_Sud = dados_20a79 %>% filter(Região == 'Sudeste')
+dados_Sul = dados_20a79 %>% filter(Região == 'Sul')
+dados_CO %>% select(idade_media,ano,cidade)
+
+
+dados = data.frame(y = dados_CO$idade_media, grupos = dados_CO$ano, id = dados_CO$cidade)
+dados_agg = dados %>% select(y,grupos,id) %>% group_by(grupos,id) %>%
+  summarize(media = mean(y, na.rm = TRUE)) %>% as.data.frame()
+
+
+variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano_saude_nao_prop",
+              "IMC_media","IMC_cat_baixo_prop","IMC_cat_excesso_prop","IMC_i_media",
+              "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
+              "flvreg_prop","hortadia_media","sofrutadia_media","frutadia_media",
+              "flvdia_media","flvreco_prop","refritl5_prop","feijao5_prop",
+              "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
+              "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota",
+              "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini",
+              "Q1_media","Q2_media","Q3_media","Q4_media","Q5_media","Q6_media","Q7_media","Q8_media","Q9_prop","Q10_media",
+              "Q11_media","Q12_media","Q13_media","Q14_prop","Q15_prop","Q16_prop","Q17_prop","Q18_prop","Q19_media","Q20_prop",
+              "Q21_prop","Q22_prop","Q23_prop","Q24_prop","Q25_prop","Q26_prop","Q27_prop","Q28_prop","Q29_prop","Q30_prop")
+
+FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$tabela
+Tabela2 = do.call(rbind,lapply(variaveis, function(variavel) {FriedmanTeste(dados_CO[[variavel]], dados_CO$ano, dados_CO$cidade)$tabela}))
+write.xlsx(Tabela2 %>% as.data.frame(), 'Tabela 2.xlsx', rowNames = T)
+
+
+
+#######################################
 
 Tabela2 = do.call(rbind,lapply(variaveis, function(variavel) {KruskalTeste(dados[[variavel]], dados$ano)$tabela}))
 Tabela3 = do.call(rbind,lapply(variaveis2, function(variavel) {KruskalTeste(dados[[variavel]], dados$ano)$C.Multiplas}))
