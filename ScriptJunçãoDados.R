@@ -163,14 +163,15 @@ TesteDeNormalidade = function(x){
 #### Carregando o banco de dados 
 ####=============================
 #vigitel = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel para análises 21-03-2024.xlsx", sheet = 1)
-vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 21-03-2024.xlsx", sheet = 1)
-pmaq = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1)
+vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 09-04-2024.xlsx", sheet = 1)
+notas_pmaq = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1)
 icsap = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/DadosICSAP_Capitais.xlsx",
                   sheet=1)
 Pop_Leitos_Planos_ESF = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/População Leitos Planos Privados Cob ESF 2010-2019.xlsx",
                                   sheet=1)
 Gini_IVS_IDHM = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Gini, IVS e IDHM 2010.xlsx",
                           sheet=1)
+pmaq = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados estrutura e equipes PMAQ capitais.xlsx", sheet = 1)
 
 ####==================
 #### Junção dos dados
@@ -183,28 +184,43 @@ icsap_agg = icsap %>%
 icsap_agg$SEXO = case_when(icsap_agg$SEXO == 'F' ~ 'Feminino',
                            icsap_agg$SEXO == 'M' ~ 'Masculino')
 
-vigitel_icsap = left_join(vigitel, icsap_agg, by = c('cidade'='Nome.do.Município','sexo'='SEXO',
+
+vigitel_icsap = full_join(vigitel, icsap_agg, by = c('cidade'='Nome.do.Município','sexo'='SEXO',
                                                      'ano'='ANO_CMPT','idade_cat'='FX_ETARIA'))
-vigitel_icsap_pmaq = left_join(vigitel_icsap, pmaq, by = c('MUNIC_RES'='IBGE','ano'='Ano'))
 
-vigitel_icsap_pmaq$Região = ifelse(vigitel_icsap_pmaq$Região == 'Centro Oeste', 'Centro-Oeste', vigitel_icsap_pmaq$Região)
 
-vigitel_icsap_pmaq_pop_leitos_planos_ESF = 
-  left_join(vigitel_icsap_pmaq, Pop_Leitos_Planos_ESF %>% mutate(IBGE = as.numeric(IBGE)) %>% rename(Cod_UF = Estado), 
+vigitel_icsap = vigitel_icsap %>% group_by(cidade) %>% fill(MUNIC_RES, Nome.da.UF, Região) %>% as.data.frame()
+
+vigitel_icsap_notas_pmaq = left_join(vigitel_icsap, notas_pmaq, by = c('MUNIC_RES'='IBGE','ano'='Ano'))
+
+vigitel_icsap_notas_pmaq$Região = ifelse(vigitel_icsap_notas_pmaq$Região == 'Centro Oeste', 'Centro-Oeste', vigitel_icsap_notas_pmaq$Região)
+
+vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF = 
+  left_join(vigitel_icsap_notas_pmaq, Pop_Leitos_Planos_ESF %>% mutate(IBGE = as.numeric(IBGE)) %>% rename(Cod_UF = Estado), 
             by = c('MUNIC_RES'='IBGE','ano'='Ano','cidade'='Município','Região'='Região'))
 
-vigitel_icsap_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM = 
-  left_join(vigitel_icsap_pmaq_pop_leitos_planos_ESF, 
+vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM = 
+  left_join(vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF, 
             Gini_IVS_IDHM %>% mutate(IBGE = as.numeric(IBGE)) %>% select(-Ano), 
             by = c('MUNIC_RES'='IBGE','cidade'='Município'))
 
-vigitel_icsap_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte = 
-  vigitel_icsap_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM %>% 
+vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte = 
+  vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM %>% 
   mutate(porte_mun = case_when(População <= 20000 ~ 'Pequeno porte I',
                                População > 20000 & População <= 50000 ~ 'Pequeno porte II',
                                População > 50000 & População <= 100000 ~ 'Médio porte',
                                População > 100000 & População <= 900000 ~ 'Grande porte',
                                População > 900000 ~ 'Metrópole'))
 
-write.xlsx(vigitel_icsap_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte %>% as.data.frame(), 
-           'Dados Catarina Vigitel ICSAP PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte 28-03-2024.xlsx', rowNames = F)
+vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte =
+  vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte %>% 
+  mutate(Ciclo = case_when(ano == 2010 | ano == 2011 | ano == 2012 ~ 1,
+                           ano == 2013 | ano == 2014 | ano == 2015 ~ 2,
+                           ano == 2016 | ano == 2017 | ano == 2018 | ano == 2019 ~ 3))
+
+vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte_est_eq = 
+  left_join(vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte,
+            pmaq, by = c('Ciclo'='Ciclo','MUNIC_RES'='IBGE'))
+
+write.xlsx(vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte_est_eq %>% as.data.frame(), 
+           'Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx', rowNames = F)

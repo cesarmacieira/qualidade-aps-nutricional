@@ -334,14 +334,14 @@ vigitel$cruadia_cat = case_when(vigitel$cruadia == 1 | vigitel$cruadia == 2 ~ 0,
 vigitel$cozidadia_cat = case_when(vigitel$cozidadia == 1 | vigitel$cozidadia == 2 ~ 0,
                                   vigitel$cozidadia == 3 ~ 1)
 
-dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos') %>% 
+dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos' | idade_cat == '80 anos ou mais') %>% 
   select(ordem,pesorake,ano,cidade,cidade_2,q6,idade_cat,q7,q7_2,civil,civil_uniaoest_casado,
          q8a,q8a_2,q8b,q8_anos,q88,plano_saude_nao,q9,q11,IMC,IMC_cat,IMC_cat_baixo,IMC_cat_excesso,
          q9_i,q11_i,IMC_i,IMC_i_cat,IMC_i_cat_baixo,IMC_i_cat_excesso,
          q16,hortareg,q25,q27,frutareg,flvreg,q18,cruadia,cruadia_cat,q20,cozidadia,cozidadia_cat,hortadia,q26,sucodia,
          q28,sofrutadia,frutadia,flvdia,flvreco,q29,refritl5,q15,feijao5,q75,hart,q76,diab)
 
-write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 21-03-2024.xlsx', rowNames = F)
+write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 09-04-2024.xlsx', rowNames = F)
 
 ####==================================
 #### Agrupando por ano, cidade e sexo
@@ -424,4 +424,4 @@ dados_agg24 = left_join(dados_agg23, dados_diab_prop)
 
 dados_agg25 = dados_agg24 %>% rename(sexo = q7_2, cidade = cidade_2)
 
-write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 21-03-2024.xlsx', rowNames = F)
+write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 09-04-2024.xlsx', rowNames = F)

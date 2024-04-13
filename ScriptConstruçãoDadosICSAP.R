@@ -177,7 +177,10 @@ Gini.IVS = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-
 ####=====================
 head(icsap)
 DescritivaCat(icsap$FX_ETARIA)
-icsap1 = icsap %>% filter(FX_ETARIA == 'DE 20 A 59 ANOS' | FX_ETARIA == 'DE 60 A 79 ANOS')
+icsap1 = icsap %>% filter(FX_ETARIA == 'DE 0 A 04 ANOS' | FX_ETARIA == 'DE 05 A 19 ANOS' | 
+                            FX_ETARIA == 'DE 20 A 59 ANOS' | FX_ETARIA == 'DE 60 A 79 ANOS')
+
+DescritivaCat(icsap1$FX_ETARIA)
 
 #Colocando 0 nas colunas de internações
 icsap1[c("ANEMIA","ANGINA","ASMA","DEFICIENCIAS_NUTRICIONAIS","DIABETES_MELITUS",
@@ -224,7 +227,9 @@ DadosICSAP_Capitais = DadosICSAP %>%
            Nome.do.Município == 'Vitória') %>%
   mutate(SomaICSAP = rowSums(select(., ANEMIA, DEFICIENCIAS_NUTRICIONAIS, DIABETES_MELITUS, HIPERTENSAO)),
          TaxaICSAP = SomaICSAP/POP,
-         FX_ETARIA = case_when(FX_ETARIA == 'DE 20 A 59 ANOS' ~ '20 a 59 anos',
+         FX_ETARIA = case_when(FX_ETARIA == 'DE 0 A 04 ANOS' ~ '0 a 4 anos',
+                               FX_ETARIA == 'DE 05 A 19 ANOS' ~ '5 a 19 anos',
+                               FX_ETARIA == 'DE 20 A 59 ANOS' ~ '20 a 59 anos',
                                FX_ETARIA == 'DE 60 A 79 ANOS' ~ '60 a 79 anos'))
 DadosICSAP_Capitais %>% filter(Nome.do.Município == 'Brasília')
 write.xlsx(DadosICSAP_Capitais, 'DadosICSAP_Capitais.xlsx')
