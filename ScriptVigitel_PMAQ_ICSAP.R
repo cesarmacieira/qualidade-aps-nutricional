@@ -6,7 +6,11 @@
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
 #setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+tryCatch({
+  setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+}, error = function(e) {
+  setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
+})
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -60,106 +64,6 @@ basic.stats = function(x, more = F) {
   t1 = unlist(stats)
   names(t1) = c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo")
   t1
-}
-
-QuiQuadrado_Fisher = function(x, y, type.sum, teste){
-  t0 = table(x, y)
-  if(type.sum==2) {
-    t1 = prop.table(t0, 2)
-  } else {
-    t1 = prop.table(t0, 1)
-  }
-  colnames(t0) = paste0("X", 1:dim(t0)[2])
-  colnames(t1) = paste0("X", 1:dim(t1)[2])
-  t2_aux = cbind(t0, t1)
-  t3 = t2_aux[, order(colnames(t2_aux))]
-  colnames(t3) = c(rep(c("N", "%"), dim(t3)[2]/2))
-  if(teste=="chisq") {
-    Valor_p = chisq.test(t0)$p.value
-  }
-  if(teste=="fisher") {
-    Valor_p = fisher.test(t0)$p.value
-  } 
-  if(teste=="chisq.simulate"){
-    Valor_p = chisq.test(t0, simulate.p.value=TRUE, B=10000)$p.value
-  }
-  
-  t4 = cbind(t3, Valor_p)
-  return(t4)
-}
-
-KruskalTeste = function(y, z, more = F){
-  tab = matrix(NA, length(levels(factor(z))), 10)
-  for(i in 1:length(levels(factor(z)))){ 
-    desc = tapply(y, factor(z),  basic.stats)[i]
-    desc1 = unlist(desc)
-    for(j in 1:10){ 
-      tab[i,j] = desc1[j]
-    }
-  }
-  p_valor = rep(kruskal.test(y~factor(z))$p.value, length(levels(factor(z))))
-  tab = cbind(tab, p_valor)
-  colnames(tab)= c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p")
-  rownames(tab)= levels(factor(z))
-  
-  if(!require(PMCMRplus)){ install.packages("PMCMRplus"); require(PMCMRplus) }
-  #CM = posthoc.kruskal.nemenyi.test(y ~ factor(z), dist="Chisq")$p.value
-  CM = kwAllPairsNemenyiTest(y ~ factor(z), dist="Chisquare")$p.value
-  model=list(tabela=tab, C.Multiplas=CM)
-  model
-}
-
-MannWhitney = function(y, x, more = F) {
-  desc = t(data.frame(tapply(y, factor(x),  basic.stats)[1], tapply(y, factor(x),  basic.stats)[2]))
-  p.value = wilcox.test(y ~ x, exact=FALSE)$p.value
-  tab = data.frame(desc, p.value)
-  colnames(tab) = c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo","Valor-p")
-  return(tab)
-}
-
-WilcoxonDependente = function(y, x, more = F) {
-  desc = t(data.frame(tapply(y, factor(x),  basic.stats)[1], tapply(y, factor(x),  basic.stats)[2]))
-  p.value = wilcox.test(y ~ x, exact=FALSE, paired = TRUE, alternative = "two.sided")$p.value
-  tab = data.frame(desc, p.value)
-  colnames(tab) = c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo","Valor-p")
-  return(tab)
-}
-
-TesteTpareado = function(y, x, more = F) {
-  desc = t(data.frame(tapply(y, factor(x),  basic.stats)[1], tapply(y, factor(x),  basic.stats)[2]))
-  p.value = t.test(y ~ x, exact = FALSE, paired = TRUE, alternative = "two.sided")$p.value
-  tab = data.frame(desc, p.value)
-  colnames(tab) = c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo", "Valor-p")
-  return(tab)
-}
-
-TesteT = function(y, x, more = F) {
-  desc = t(data.frame(tapply(y, factor(x),  basic.stats)[1], tapply(y, factor(x),  basic.stats)[2]))
-  p.value = t.test(y ~ x, exact = FALSE, paired = F)$p.value
-  tab = data.frame(desc, p.value)
-  colnames(tab) = c("N válidos", "Média", "Variância", "D.P.", "E.P.", "Mínimo", "1ºQ", "2ºQ", "3ºQ", "Máximo","Valor-p")
-  return(tab)
-}
-
-TesteDeNormalidade = function(x){
-  if(!require(dgof)){ install.packages("dgof"); require(dgof)}#Teste de Kolmogorov-Smirnov
-  if(!require(nortest)){ install.packages("nortest"); require(nortest)}#Anderson-Darling
-  AndersonDarling = round(ad.test(x)$p.value,3)
-  KolmogorovSmirnov = round(ks.test(x, "pnorm", mean(x, na.rm = T), sd(x, na.rm = T))$p.value,3)
-  Lilliefors = round(lillie.test(x)$p.value,3)
-  CramerVonMises = round(cvm.test(x)$p.value,3)
-  if(length(x) > 5000){
-    ShapiroWilk = "N > 5000"
-    ShapiroFrancia = "N > 5000"
-  }else{
-    ShapiroWilk = shapiro.test(x)$p.value
-    ShapiroFrancia = sf.test(x)$p.value   
-  }
-  tabela = cbind(AndersonDarling,KolmogorovSmirnov,Lilliefors,CramerVonMises,
-                 ShapiroWilk,ShapiroFrancia)
-  colnames(tabela) = c('Anderson-Darling','Kolmogorov-Smirnov','Lilliefors','Cramer Von Mises','Shapiro-Wilk','Shapiro Francia')
-  #row.names(tabela) = x
-  return(tabela)
 }
 
 ####=============================

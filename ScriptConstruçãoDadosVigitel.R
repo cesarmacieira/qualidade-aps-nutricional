@@ -8,7 +8,6 @@ rm(list=ls(all=T))#Limpar ambiente/histórico
 #setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
 #setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
 
-# Tentar definir o diretório para um caminho específico
 tryCatch({
   setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
 }, error = function(e) {
@@ -186,11 +185,9 @@ TesteDeNormalidade = function(x){
 
 #vigitel = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel 05-03-2024.xlsx", sheet = 1)
 #vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
-tryCatch({
-  vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
-}, error = function(e) {
-  vigitel = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
-})
+
+#vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
+vigitel = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
 
 ####=====================
 #### Tratamento de dados
@@ -404,8 +401,8 @@ dados_refritl5_prop = dados %>% filter(!is.na(refritl5)) %>% group_by(ano, cidad
   summarize(refritl5_prop = sum(refritl5 * pesorake) / sum(pesorake)) %>% as.data.frame()
 dados_feijao5_prop = dados %>% filter(!is.na(feijao5)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
   summarize(feijao5_prop = sum(feijao5 * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_hart_media = dados %>% filter(!is.na(hart)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
-  summarize(hart_media = weighted.mean(hart, pesorake)) %>% as.data.frame()
+dados_hart_prop = dados %>% filter(!is.na(hart)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+  summarize(hart_prop = sum(hart * pesorake) / sum(pesorake)) %>% as.data.frame()
 dados_diab_prop = dados %>% filter(!is.na(diab)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
   summarize(diab_prop = sum(diab * pesorake) / sum(pesorake)) %>% as.data.frame()
 
@@ -431,7 +428,7 @@ dados_agg19 = left_join(dados_agg18, dados_flvdia_media)
 dados_agg20 = left_join(dados_agg19, dados_flvreco_prop)
 dados_agg21 = left_join(dados_agg20, dados_refritl5_prop)
 dados_agg22 = left_join(dados_agg21, dados_feijao5_prop)
-dados_agg23 = left_join(dados_agg22, dados_hart_media)
+dados_agg23 = left_join(dados_agg22, dados_hart_prop)
 dados_agg24 = left_join(dados_agg23, dados_diab_prop)
 
 dados_agg25 = dados_agg24 %>% rename(sexo = q7_2, cidade = cidade_2)
