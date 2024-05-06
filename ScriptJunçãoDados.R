@@ -5,7 +5,6 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
 tryCatch({
   setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
 }, error = function(e) {

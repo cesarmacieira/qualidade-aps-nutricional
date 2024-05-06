@@ -5,8 +5,11 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+tryCatch({
+  setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+}, error = function(e) {
+  setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
+})
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -286,8 +289,8 @@ HomogeneidadeVariancias = function(y, z){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-#dados = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel ICSAP PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM 28-03-2024.xlsx", sheet = 1)
-dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
+#dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
+dados = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
 
 ####============================
 #### Distribuição das variáveis
@@ -297,7 +300,7 @@ variaveis = c("idade_media","civil_uniaoest_casado_prop","anos_de_estudo","plano
               "IMC_i_cat_baixo_prop","IMC_i_cat_excesso_prop","hortareg_prop","frutareg_prop",
               "flvreg_prop","hortadia_media","sofrutadia_media","frutadia_media",
               "flvdia_media","flvreco_prop","refritl5_prop","feijao5_prop",
-              "hart_media","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
+              "hart_prop","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota",
               "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini",
               "Q1_media","Q2_media","Q3_media","Q4_media","Q5_media","Q6_media","Q7_media","Q8_media","Q9_prop","Q10_media",
@@ -310,7 +313,7 @@ Tabela1 =
                                  IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
                                  hortareg_prop,frutareg_prop,flvreg_prop,hortadia_media,
                                  sofrutadia_media,frutadia_media,flvdia_media,flvreco_prop,refritl5_prop,feijao5_prop,
-                                 hart_media,diab_prop,POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,
+                                 hart_prop,diab_prop,POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,
                                  SomaICSAP,TaxaICSAP,Nota,População,Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,IVS,IDHM,Gini,
                                  Q1_media,Q2_media,Q3_media,Q4_media,Q5_media,Q6_media,Q7_media,Q8_media,Q9_prop,Q10_media,
                                  Q11_media,Q12_media,Q13_media,Q14_prop,Q15_prop,Q16_prop,Q17_prop,Q18_prop,Q19_media,Q20_prop,
@@ -407,7 +410,7 @@ Tabela2 = rbind(#FriedmanTeste(dados_CO$idade_media, dados_CO$ano, dados_CO$cida
   FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade)$tabela,
   FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade)$tabela,
   FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$tabela,#
-  FriedmanTeste(dados_CO$hart_media, dados_CO$ano, dados_CO$cidade)$tabela,
+  FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade)$tabela,
   FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade)$tabela,
   #FriedmanTeste(dados_CO$POP, dados_CO$ano, dados_CO$cidade)$tabela,
   FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade)$tabela,
@@ -475,7 +478,7 @@ Tabela2.1 = rbind(#FriedmanTeste(dados_CO$idade_media, dados_CO$ano, dados_CO$ci
                   FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
                   FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_CO$hart_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
                   FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_CO$POP, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
                   FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
@@ -540,7 +543,7 @@ Tabela3 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade)
                 FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade)$tabela,
                 FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade)$tabela,
                 FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade)$tabela,#
-                FriedmanTeste(dados_ND$hart_media, dados_ND$ano, dados_ND$cidade)$tabela,
+                FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade)$tabela,
                 FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade)$tabela,
                 FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade)$tabela,
                 FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade)$tabela,
@@ -562,7 +565,7 @@ Tabela3.1 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidad
                   FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_ND$hart_media, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
@@ -590,7 +593,7 @@ Tabela4 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade)
                 FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade)$tabela,
                 FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade)$tabela,
                 FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade)$tabela,#
-                FriedmanTeste(dados_NT$hart_media, dados_NT$ano, dados_NT$cidade)$tabela,
+                FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade)$tabela,
                 FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade)$tabela,
                 FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade)$tabela,
                 FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade)$tabela,
@@ -612,7 +615,7 @@ Tabela4.1 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidad
                   FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
                   FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_NT$hart_media, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
                   FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
                   FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
                   FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
@@ -639,7 +642,7 @@ Tabela5 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cida
                 FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
                 FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
                 FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,#
-                FriedmanTeste(dados_Sud$hart_media, dados_Sud$ano, dados_Sud$cidade)$tabela,
+                FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
                 FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
                 FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade)$tabela,
                 FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade)$tabela,
@@ -660,7 +663,7 @@ Tabela5.1 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$ci
                   FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_Sud$hart_media, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
@@ -686,7 +689,7 @@ Tabela6 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cida
                 FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
                 FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
                 FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,#
-                FriedmanTeste(dados_Sul$hart_media, dados_Sul$ano, dados_Sul$cidade)$tabela,
+                FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
                 FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
                 FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade)$tabela,
                 FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade)$tabela,
@@ -707,7 +710,7 @@ Tabela6.1 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$ci
                   FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
                   #FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_Sul$hart_media, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
                   FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
@@ -827,7 +830,7 @@ Tabela12 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, d
                  FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
                  FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
                  FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_CO_80mais$hart_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
+                 FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
                  FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
                  FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela)
 Tabela12.1 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
@@ -840,7 +843,7 @@ Tabela12.1 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano,
                    FriedmanTeste(dados_CO_80mais$flvdia_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$hart_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
+                   FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas)
 Tabela12.2 = FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas
@@ -859,7 +862,7 @@ Tabela13 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano, d
                 FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
                 FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
                 FriedmanTeste(dados_ND_80mais$feijao5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,#
-                FriedmanTeste(dados_ND_80mais$hart_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
+                FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
                 FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
                 FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade)$tabela,
                 FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade)$tabela)
@@ -873,7 +876,7 @@ Tabela13.1 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano,
                   FriedmanTeste(dados_ND_80mais$flvdia_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$hart_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
+                  FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
                   FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade)$C.Multiplas)
 Tabela13.2 = FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade)$C.Multiplas
@@ -894,7 +897,7 @@ Tabela14 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, d
                  FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
                  FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
                  FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_NT_80mais$hart_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
+                 FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
                  FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
                  FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade)$tabela)
 Tabela14.1 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
@@ -907,7 +910,7 @@ Tabela14.1 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano,
                    FriedmanTeste(dados_NT_80mais$flvdia_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$hart_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
+                   FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade)$C.Multiplas)
 Tabela14.2 = FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas
@@ -926,7 +929,7 @@ Tabela15 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano,
                  FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_Sud_80mais$hart_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
+                 FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela)
 Tabela15.1 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
@@ -939,7 +942,7 @@ Tabela15.1 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$an
                    FriedmanTeste(dados_Sud_80mais$flvdia_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$hart_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
+                   FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas)
 Tabela15.2 = FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas
@@ -958,7 +961,7 @@ Tabela16 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano,
                  FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_Sul_80mais$hart_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
+                 FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
                  FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela)
 Tabela16.1 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
@@ -971,7 +974,7 @@ Tabela16.1 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$an
                    FriedmanTeste(dados_Sul_80mais$flvdia_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$hart_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
+                   FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
                    FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas)
 Tabela16.2 = FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas
@@ -1006,7 +1009,7 @@ dados_sumarizados = dados %>%
             media_hortadia_media = mean(hortadia_media), media_sucodia_media = mean(sucodia_media),
             media_sofrutadia_media = mean(sofrutadia_media), media_frutadia_media = mean(frutadia_media),
             media_flvdia_media = mean(flvdia_media), media_flvreco_prop = mean(flvreco_prop), media_refritl5_prop = mean(refritl5_prop),
-            media_feijao5_prop = mean(feijao5_prop), media_hart_media = mean(hart_media),
+            media_feijao5_prop = mean(feijao5_prop), media_hart_prop = mean(hart_prop),
             media_diab_prop = mean(diab_prop), media_ANEMIA = mean(ANEMIA),
             media_DEFICIENCIAS_NUTRICIONAIS = mean(DEFICIENCIAS_NUTRICIONAIS),
             media_DIABETES_MELITUS = mean(DIABETES_MELITUS),
@@ -1079,7 +1082,7 @@ Tabela6.1 = do.call(rbind,KruskalAnoSexoCM("hortareg_prop"))
 Tabela7 = do.call(rbind,KruskalAnoSexo("frutareg_prop"))
 Tabela8 = do.call(rbind,KruskalAnoSexo("flvreg_prop"))
 Tabela9 = do.call(rbind,KruskalAnoSexo("refritl5_prop"))
-Tabela10 = do.call(rbind,KruskalAnoSexo("hart_media"))
+Tabela10 = do.call(rbind,KruskalAnoSexo("hart_prop"))
 Tabela11 = do.call(rbind,KruskalAnoSexo("diab_prop"))
 Tabela12 = do.call(rbind,KruskalAnoSexo("ANEMIA"))
 Tabela13 = do.call(rbind,KruskalAnoSexo("DEFICIENCIAS_NUTRICIONAIS"))
