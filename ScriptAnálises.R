@@ -5,11 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-tryCatch({
-  setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
-}, error = function(e) {
-  setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
-})
+setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
+#setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -289,8 +286,10 @@ HomogeneidadeVariancias = function(y, z){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-#dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
 dados = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
+#dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
+
+#dados1 = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 06-05-2024.xlsx", sheet = 1)
 
 ####============================
 #### Distribuição das variáveis
@@ -330,6 +329,9 @@ Tabela1 =
 ####==================
 #20 a 79 anos
 dados_20a79 = dados %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos')
+dados_20a79_inc = dados_20a79 %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina' | cidade == 'Macapá')
+dados_20a79_comp = dados_20a79 %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina' & cidade != 'Macapá')
+
 dados_CO = dados_20a79 %>% filter(Região == 'Centro-Oeste')
 
 dados_ND = dados_20a79 %>% filter(Região == 'Nordeste')
@@ -342,6 +344,20 @@ dados_NT_comp = dados_20a79 %>% filter(Região == 'Norte') %>% filter(cidade != 
 
 dados_Sud = dados_20a79 %>% filter(Região == 'Sudeste')
 dados_Sul = dados_20a79 %>% filter(Região == 'Sul')
+
+# dados1_20a79 = dados1 %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos')
+# dados1_CO = dados1_20a79 %>% filter(Região == 'Centro-Oeste')
+# 
+# dados1_ND = dados1_20a79 %>% filter(Região == 'Nordeste')
+# dados1_ND_inc = dados1_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina')
+# dados1_ND_comp = dados1_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina')
+# 
+# dados1_NT = dados1_20a79 %>% filter(Região == 'Norte')
+# dados1_NT_inc = dados1_20a79 %>% filter(Região == 'Norte') %>% filter(cidade == 'Macapá')
+# dados1_NT_comp = dados1_20a79 %>% filter(Região == 'Norte') %>% filter(cidade != 'Macapá')
+# 
+# dados1_Sud = dados1_20a79 %>% filter(Região == 'Sudeste')
+# dados1_Sul = dados1_20a79 %>% filter(Região == 'Sul')
 
 #0 a 19 anos
 dados_0a19 = dados %>% filter(idade_cat == '0 a 4 anos' | idade_cat == '5 a 19 anos')
@@ -390,6 +406,55 @@ dados_Sul_80mais = dados_80mais %>% filter(Região == 'Sul')
 ####====================================
 #### Comparações por ano - 20 a 79 anos
 ####====================================
+Tabela2.0 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,#
+                  FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade)$tabela,
+                  FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade)$tabela,
+                  FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade)$tabela)
+
+Tabela2.0.1 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    #FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,#
+                    FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
+                    FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade)$C.Multiplas)
+Tabela2.0.2 = FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade)$C.Multiplas
+Tabela2.0.3 = FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas
+# write.xlsx(Tabela2.0 %>% as.data.frame(), 'Tabela 2.0.xlsx', rowNames = T)
+# write.xlsx(Tabela2.0.1 %>% as.data.frame(), 'Tabela 2.0.1.xlsx', rowNames = T)
+# write.xlsx(Tabela2.0.2 %>% as.data.frame(), 'Tabela 2.0.2.xlsx', rowNames = T)
+# write.xlsx(Tabela2.0.3 %>% as.data.frame(), 'Tabela 2.0.3.xlsx', rowNames = T)
+
 Tabela2 = rbind(#FriedmanTeste(dados_CO$idade_media, dados_CO$ano, dados_CO$cidade)$tabela,
   #FriedmanTeste(dados_CO$civil_uniaoest_casado_prop, dados_CO$ano, dados_CO$cidade)$tabela,
   #FriedmanTeste(dados_CO$anos_de_estudo, dados_CO$ano, dados_CO$cidade)$tabela,

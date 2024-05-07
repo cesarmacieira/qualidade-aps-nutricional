@@ -6,13 +6,7 @@
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
 #setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-#setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
-
-tryCatch({
-  setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
-}, error = function(e) {
-  setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
-})
+setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -184,10 +178,7 @@ TesteDeNormalidade = function(x){
 # write.xlsx(vigitel %>% as.data.frame(), 'Dados Catarina Vigitel 21-03-2024.xlsx', rowNames=F)
 
 #vigitel = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel 05-03-2024.xlsx", sheet = 1)
-#vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
-
-#vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
-vigitel = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
+vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
 
 ####=====================
 #### Tratamento de dados
