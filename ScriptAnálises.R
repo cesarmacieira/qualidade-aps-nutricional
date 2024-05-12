@@ -2003,6 +2003,9 @@ summary(multig_refritl511)
 ####==============
 #### feijao5_prop
 ####==============
+####========
+#### Normal
+####========
 hist(dados_20a79$feijao5_prop)
 ks.test(dados_20a79$feijao5_prop, "pnorm", mean(dados_20a79$feijao5_prop, na.rm = T), sd(dados_20a79$feijao5_prop, na.rm = T))
 
@@ -2165,7 +2168,7 @@ multi_feijao57 = geeglm(feijao5_prop ~ sexo*IVS +
                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
                         family = gaussian(link = 'identity'), corstr = "exchangeable")
 summary(multi_feijao57)
-write.xlsx(TabelaGEENormal(multi_feijao57) %>% as.data.frame(), 'Tabela 21.3.xlsx', rowNames = F)
+#write.xlsx(TabelaGEENormal(multi_feijao57) %>% as.data.frame(), 'Tabela 21.3.xlsx', rowNames = F)
 
 hist(multi_feijao57$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
 lines(seq(min(multi_feijao57$residuals),max(multi_feijao57$residuals), length.out = 100),
@@ -2176,6 +2179,117 @@ qqnorm(multi_feijao57$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis d
 qqline(multi_feijao57$residuals)
 
 ks.test(multi_feijao57$residuals, "pnorm", mean(multi_feijao57$residuals, na.rm = T), sd(multi_feijao57$residuals, na.rm = T))
+
+####=======
+#### Gamma
+####=======
+unig_feijao51 = geeglm(feijao5_prop ~ sexo, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,sexo,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao52 = geeglm(feijao5_prop ~ idade_cat, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,idade_cat,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao53 = geeglm(feijao5_prop ~ anos_de_estudo, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao54 = geeglm(feijao5_prop ~ plano_saude_nao_prop, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao55 = geeglm(feijao5_prop ~ Nota, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,sexo,Nota,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao56 = geeglm(feijao5_prop ~ IVS, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao57 = geeglm(feijao5_prop ~ IDHM, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_feijao58 = geeglm(feijao5_prop ~ Gini, id = cidade, 
+                       data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+
+Tabela21.4 = rbind(TabelaGEEGama(unig_feijao51),TabelaGEEGama(unig_feijao52),
+                   TabelaGEEGama(unig_feijao53),TabelaGEEGama(unig_feijao54),
+                   TabelaGEEGama(unig_feijao55),TabelaGEEGama(unig_feijao56)
+                   #TabelaGEEGama(unig_feijao57)#TabelaGEEGama(unig_feijao58)
+)
+#write.xlsx(Tabela21.4 %>% as.data.frame(), 'Tabela 21.4.xlsx', rowNames = F)
+
+#Sem interação: anos_de_estudo e plano_saude_nao_prop
+multig_semint_feijao51 = geeglm(feijao5_prop ~ sexo + idade_cat + #anos_de_estudo + 
+                                  #plano_saude_nao_prop + 
+                                  Nota + IVS, 
+                                id = cidade, data = dados_20a79 %>% 
+                                  select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                                family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_semint_feijao51)
+#write.xlsx(TabelaGEEGama(multig_semint_feijao51) %>% as.data.frame(), 'Tabela 21.5.xlsx', rowNames = F)
+
+#Com interação
+multig_feijao51 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                           idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                           Nota*IVS, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_feijao51)
+
+#idade_cat*IVS
+multig_feijao52 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                           idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                           Nota*IVS, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_feijao52)
+
+#idade_cat*plano_saude_nao_prop
+multig_feijao53 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                           idade_cat*anos_de_estudo + idade_cat*Nota +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                           Nota*IVS, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_feijao53)
+
+#sexo*Nota
+multig_feijao54 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IVS +
+                           idade_cat*anos_de_estudo + idade_cat*Nota +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                           Nota*IVS, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_feijao54)
+
+#idade_cat*anos_de_estudo
+multig_feijao55 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IVS +
+                           idade_cat*Nota +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                           Nota*IVS, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_feijao55)
+#write.xlsx(TabelaGEEGama(multig_feijao55) %>% as.data.frame(), 'Tabela 21.6.xlsx', rowNames = F)
 
 ####======
 #### hart
@@ -2254,6 +2368,16 @@ multi_semint_hart1 = geeglm(hart_prop ~ sexo + idade_cat + anos_de_estudo +
                             family = gaussian(link = 'identity'), corstr = "exchangeable")
 summary(multi_semint_hart1)
 #write.xlsx(TabelaGEENormal(multi_semint_hart1) %>% as.data.frame(), 'Tabela 22.2.xlsx', rowNames = F)
+
+hist(multi_semint_hart1$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_semint_hart1$residuals),max(multi_semint_hart1$residuals), length.out = 100),
+      dnorm(seq(min(multi_semint_hart1$residuals),max(multi_semint_hart1$residuals), length.out = 100),
+            mean=mean(multi_semint_hart1$residuals),sd=sd(multi_semint_hart1$residuals)))
+
+qqnorm(multi_semint_hart1$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_semint_hart1$residuals)
+
+ks.test(multi_semint_hart1$residuals, "pnorm", mean(multi_semint_hart1$residuals, na.rm = T), sd(multi_semint_hart1$residuals, na.rm = T))
 
 #Com interação
 multi_hart1 = geeglm(hart_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
@@ -2389,11 +2513,14 @@ lines(seq(min(multi_hart12$residuals),max(multi_hart12$residuals), length.out = 
 qqnorm(multi_hart12$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
 qqline(multi_hart12$residuals)
 
-ks.test(multi_hart12$residuals, "pnorm", mean(multi_hart9$residuals, na.rm = T), sd(multi_hart9$residuals, na.rm = T))
+ks.test(multi_hart12$residuals, "pnorm", mean(multi_hart12$residuals, na.rm = T), sd(multi_hart12$residuals, na.rm = T))
 
 ####======
 #### diab
 ####======
+####========
+#### Normal
+####========
 hist(dados_20a79$diab_prop)
 ks.test(dados_20a79$diab_prop, "pnorm", mean(dados_20a79$diab_prop, na.rm = T), sd(dados_20a79$diab_prop, na.rm = T))
 
@@ -2459,7 +2586,7 @@ Tabela23.1 = rbind(TabelaGEENormal(uni_diab1),TabelaGEENormal(uni_diab2),
 )
 #write.xlsx(Tabela23.1 %>% as.data.frame(), 'Tabela 23.1.xlsx', rowNames = F)
 
-#Sem interação: Nota
+#Sem interação
 multi_semint_diab1 = geeglm(diab_prop ~ #sexo + 
                               idade_cat + #anos_de_estudo + 
                               #plano_saude_nao_prop + #Nota + 
@@ -2469,6 +2596,16 @@ multi_semint_diab1 = geeglm(diab_prop ~ #sexo +
                             family = gaussian(link = 'identity'), corstr = "exchangeable")
 summary(multi_semint_diab1)
 #write.xlsx(TabelaGEENormal(multi_semint_diab1) %>% as.data.frame(), 'Tabela 23.2.xlsx', rowNames = F)
+
+hist(multi_semint_diab1$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_semint_diab1$residuals),max(multi_semint_diab1$residuals), length.out = 100),
+      dnorm(seq(min(multi_semint_diab1$residuals),max(multi_semint_diab1$residuals), length.out = 100),
+            mean=mean(multi_semint_diab1$residuals),sd=sd(multi_semint_diab1$residuals)))
+
+qqnorm(multi_semint_diab1$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_semint_diab1$residuals)
+
+ks.test(multi_semint_diab1$residuals, "pnorm", mean(multi_semint_diab1$residuals, na.rm = T), sd(multi_semint_diab1$residuals, na.rm = T))
 
 #Com interação
 multi_diab1 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
@@ -2601,7 +2738,178 @@ lines(seq(min(multi_diab12$residuals),max(multi_diab12$residuals), length.out = 
 qqnorm(multi_diab12$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
 qqline(multi_diab12$residuals)
 
-ks.test(multi_diab12$residuals, "pnorm", mean(multi_diab9$residuals, na.rm = T), sd(multi_diab9$residuals, na.rm = T))
+ks.test(multi_diab12$residuals, "pnorm", mean(multi_diab12$residuals, na.rm = T), sd(multi_diab12$residuals, na.rm = T))
+
+####=======
+#### Gamma
+####=======
+unig_diab1 = geeglm(diab_prop ~ sexo, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,sexo,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab2 = geeglm(diab_prop ~ idade_cat, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,idade_cat,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab3 = geeglm(diab_prop ~ anos_de_estudo, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab4 = geeglm(diab_prop ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab5 = geeglm(diab_prop ~ Nota, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,sexo,Nota,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab6 = geeglm(diab_prop ~ IVS, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                  plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab7 = geeglm(diab_prop ~ IDHM, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                  plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+unig_diab8 = geeglm(diab_prop ~ Gini, id = cidade, 
+                    data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                  plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+Tabela23.4 = rbind(TabelaGEEGama(unig_diab1),TabelaGEEGama(unig_diab2),
+                   TabelaGEEGama(unig_diab3),TabelaGEEGama(unig_diab4),
+                   TabelaGEEGama(unig_diab5),#TabelaGEEGama(unig_diab6),TabelaGEEGama(unig_diab7)
+                   TabelaGEEGama(unig_diab8)
+)
+#write.xlsx(Tabela23.4 %>% as.data.frame(), 'Tabela 23.4.xlsx', rowNames = F)
+
+#Sem interação
+multig_semint_diab1 = geeglm(diab_prop ~ sexo + 
+                               idade_cat + #anos_de_estudo + 
+                               #plano_saude_nao_prop + #Nota + 
+                               Gini, 
+                             id = cidade, data = dados_20a79 %>% 
+                               select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                             family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_semint_diab1)
+#write.xlsx(TabelaGEEGama(multig_semint_diab1) %>% as.data.frame(), 'Tabela 23.5.xlsx', rowNames = F)
+
+#Com interação
+multig_diab1 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                        Nota*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab1)
+
+#idade_cat*Nota
+multig_diab2 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                        Nota*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab2)
+
+#plano_saude_nao_prop*Nota
+multig_diab3 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini +
+                        Nota*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab3)
+
+#Nota*Gini
+multig_diab4 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab4)
+
+#sexo*Nota
+multig_diab5 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini + Nota, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab5)
+
+#Nota
+
+#idade_cat*anos_de_estudo
+multig_diab6 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                        idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab6)
+
+#anos_de_estudo*Nota
+multig_diab7 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                        idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab7)
+
+#sexo*Gini
+multig_diab8 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                        idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab8)
+
+#idade_cat*Gini
+multig_diab9 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                        plano_saude_nao_prop*Gini, 
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab9)
+
+#anos_de_estudo*Gini
+multig_diab10 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                         idade_cat*plano_saude_nao_prop +
+                         anos_de_estudo*plano_saude_nao_prop +
+                         plano_saude_nao_prop*Gini, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab10)
+
+#plano_saude_nao_prop*Gini
+multig_diab11 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                         idade_cat*plano_saude_nao_prop +
+                         anos_de_estudo*plano_saude_nao_prop + Gini, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multig_diab11)
+#write.xlsx(TabelaGEEGama(multig_diab11) %>% as.data.frame(), 'Tabela 23.6.xlsx', rowNames = F)
 
 ####===========
 #### TaxaICSAP
