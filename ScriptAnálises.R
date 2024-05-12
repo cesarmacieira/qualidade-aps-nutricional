@@ -14,6 +14,8 @@ setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
 if(!require(openxlsx)){ install.packages("openxlsx"); require(openxlsx)}#Ler e exportar excel
 if(!require(purrr)){ install.packages("purrr"); require(purrr)}#Programação funcional
 if(!require(tidyverse)){ install.packages("tidyverse"); require(tidyverse)}#Manipulação de dados
+if(!require(geepack)){ install.packages("geepack"); require(geepack)}
+#if(!require(mice)){ install.packages("mice"); require(mice)}
 
 ####=========
 #### Funções
@@ -283,6 +285,121 @@ HomogeneidadeVariancias = function(y, z){
   return(valor_p_Levene)
 }
 
+TabelaGEEGama = function(modelo,casasdecimaisExpB=F){
+  options(OutDec=",")
+  if(casasdecimaisExpB == F){
+    Tabela = data.frame("Variáveis" = rownames(summary(modelo)$coefficients),
+                        "β" = summary(modelo)$coefficients[,1],
+                        "Exp β" = exp(summary(modelo)$coefficients[,1]),
+                        "Alteração" = (exp(summary(modelo)$coefficients[,1]) - 1),
+                        "I.C." = paste0("[",round(exp(summary(modelo)$coefficients[,1]-1.96*summary(modelo)$coefficients[,2]),3),"; ",
+                                        round(exp(summary(modelo)$coefficients[,1]+1.96*summary(modelo)$coefficients[,2]),3),"]"),
+                        "I.C. (Alteração)" = paste0("[",round((exp(summary(modelo)$coefficients[,1]-1.96*summary(modelo)$coefficients[,2])-1)*100,2),"%; ",
+                                                    round((exp(summary(modelo)$coefficients[,1]+1.96*summary(modelo)$coefficients[,2])-1)*100,2),"%]"),
+                        "Valor-p" = round(summary(modelo)$coefficients[,4],4))
+  }else{
+    Tabela = data.frame("Variáveis" = rownames(summary(modelo)$coefficients),
+                        "β" = summary(modelo)$coefficients[,1],
+                        "Exp β" = round(exp(summary(modelo)$coefficients[,1]),casasdecimaisExpB),
+                        "Alteração" = (exp(summary(modelo)$coefficients[,1]) - 1),
+                        "I.C." = paste0("[",round(exp(summary(modelo)$coefficients[,1]-1.96*summary(modelo)$coefficients[,2]),casasdecimaisExpB),"; ",
+                                        round(exp(summary(modelo)$coefficients[,1]+1.96*summary(modelo)$coefficients[,2]),casasdecimaisExpB),"]"),
+                        "I.C. (Alteração)" = paste0("[",round((exp(summary(modelo)$coefficients[,1]-1.96*summary(modelo)$coefficients[,2])-1)*100,casasdecimaisExpB),"%; ",
+                                                    round((exp(summary(modelo)$coefficients[,1]+1.96*summary(modelo)$coefficients[,2])-1)*100,casasdecimaisExpB),"%]"),
+                        "Valor-p" = round(summary(modelo)$coefficients[,4],4))
+  }
+  return(Tabela)
+}
+
+TabelaGEENormal = function(modelo){
+  options(OutDec=",")
+  Tabela = data.frame("Variáveis" = rownames(summary(modelo)$coefficients),
+                      "β" = summary(modelo)$coefficients[,1],
+                      "I.C. (95%)" = paste0("[",round(summary(modelo)$coefficients[,1]-(1.96*summary(modelo)$coefficients[,2]),3),"; ",
+                                            round(summary(modelo)$coefficients[,1]+(1.96*summary(modelo)$coefficients[,2]),3),"]"),
+                      "Valor-p" = round(summary(modelo)$coefficients[,4],4))
+  return(Tabela)
+}
+
+diag_gee_gama <- function(modelo, dados){
+  X <- model.matrix(as.formula(paste("~ ", modelo$call$formula[3])), dados) 
+  y <- modelo$y
+  beta <- coef(modelo)
+  R <- modelo$work
+  mi <- fitted(modelo)
+  individuo <- modelo$id
+  
+  repet <- dim(modelo$work)[1]
+  ue <- modelo$nobs/repet
+  
+  N <- nrow(X)
+  p <- ncol(X)
+  
+  #Calculo do Residuo de Pearson
+  r<-(y-mi)*(1/sqrt(mi^2))
+  
+  #Calculo de phi
+  invphi<-as.numeric(sum(r^2)/(N-p))
+  phi<-1/invphi
+  
+  #Matriz C <- A * Delta  #Ligação canonica -> Delta=Identidade
+  A <- diag(mi^2,N)
+  Delta <- diag(1/mi,N)
+  C <- Delta%*%A
+  
+  #Matriz Omega - variancia e covariancia de y
+  Omega <- matrix(0,N,N)
+  invOmega <- matrix(0,N,N)
+  l <- 1
+  while (l<N)
+  {
+    Omega[l:(l+repet-1),l:(l+repet-1)] <- 
+      sqrt(A[l:(l+repet-1),l:(l+repet-1)])%*%R[1:repet,1:repet]%*%sqrt(A[l:(l+repet-1),l:(l+repet-1)])
+    invOmega[l:(l+repet-1),l:(l+repet-1)] <-solve(Omega[l:(l+repet-1),l:(l+repet-1)])
+    l <- l+repet
+  }
+  Omega <- invphi*Omega
+  invOmega <- phi*invOmega
+  
+  #Matriz H e W
+  W <- C%*%invOmega%*%C
+  H <- solve(t(X)%*%W%*%X)
+  raizW <- matrix(0,N,N)
+  l <- 1
+  while (l<N)
+  {
+    auto<-eigen(W[l:(l+repet-1),l:(l+repet-1)])
+    raizW[l:(l+repet-1),l:(l+repet-1)] <- auto$vectors%*%sqrt(diag(auto$values,repet))%*%t(auto$vectors)
+    l <- l+repet
+  }
+  H <- raizW%*%X%*%H%*%t(X)%*%raizW
+  h <- diag(H)
+  
+  #Ponto Alavanca por UE
+  hue<-as.vector(rep(0,ue))
+  haux <- matrix(h,ue,repet,byrow=T)
+  for (i in 1:ue)
+    hue[i] <- sum(haux[i,])/repet
+  
+  #Residuo Padronizado
+  rsd <- as.vector(rep(0,N))
+  part.rsd <- raizW%*%solve(C)%*%(y-mi)
+  for (l in 1:N)
+  {
+    e <- as.vector(rep(0,N))
+    e[l] <- 1
+    rsd[l] <- t(e)%*%part.rsd/sqrt(1-h[l])
+  }	
+  
+  #Distancia de Cook
+  cd <- as.vector(rep(0,N))
+  for (l in 1:N)
+  {
+    cd[l] <- (rsd[l])^2*h[l]/((1-h[l])*p)
+  }	
+  return(cbind(h,cd,rsd))
+}
+
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
@@ -329,47 +446,33 @@ Tabela1 =
 ####==================
 #20 a 79 anos
 dados_20a79 = dados %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos')
-dados_20a79_inc = dados_20a79 %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina' | cidade == 'Macapá')
-dados_20a79_comp = dados_20a79 %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina' & cidade != 'Macapá')
+dados_20a79_inc = dados_20a79 %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina' | cidade_nome == 'Macapá')
+dados_20a79_comp = dados_20a79 %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina' & cidade_nome != 'Macapá')
 
 dados_CO = dados_20a79 %>% filter(Região == 'Centro-Oeste')
 
 dados_ND = dados_20a79 %>% filter(Região == 'Nordeste')
-dados_ND_inc = dados_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina')
-dados_ND_comp = dados_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina')
+dados_ND_inc = dados_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina')
+dados_ND_comp = dados_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina')
 
 dados_NT = dados_20a79 %>% filter(Região == 'Norte')
-dados_NT_inc = dados_20a79 %>% filter(Região == 'Norte') %>% filter(cidade == 'Macapá')
-dados_NT_comp = dados_20a79 %>% filter(Região == 'Norte') %>% filter(cidade != 'Macapá')
+dados_NT_inc = dados_20a79 %>% filter(Região == 'Norte') %>% filter(cidade_nome == 'Macapá')
+dados_NT_comp = dados_20a79 %>% filter(Região == 'Norte') %>% filter(cidade_nome != 'Macapá')
 
 dados_Sud = dados_20a79 %>% filter(Região == 'Sudeste')
 dados_Sul = dados_20a79 %>% filter(Região == 'Sul')
-
-# dados1_20a79 = dados1 %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos')
-# dados1_CO = dados1_20a79 %>% filter(Região == 'Centro-Oeste')
-# 
-# dados1_ND = dados1_20a79 %>% filter(Região == 'Nordeste')
-# dados1_ND_inc = dados1_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina')
-# dados1_ND_comp = dados1_20a79 %>% filter(Região == 'Nordeste') %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina')
-# 
-# dados1_NT = dados1_20a79 %>% filter(Região == 'Norte')
-# dados1_NT_inc = dados1_20a79 %>% filter(Região == 'Norte') %>% filter(cidade == 'Macapá')
-# dados1_NT_comp = dados1_20a79 %>% filter(Região == 'Norte') %>% filter(cidade != 'Macapá')
-# 
-# dados1_Sud = dados1_20a79 %>% filter(Região == 'Sudeste')
-# dados1_Sul = dados1_20a79 %>% filter(Região == 'Sul')
 
 #0 a 19 anos
 dados_0a19 = dados %>% filter(idade_cat == '0 a 4 anos' | idade_cat == '5 a 19 anos')
 
 dados_CO_0a19 = dados_0a19 %>% filter(Região == 'Centro-Oeste')
 dados_ND_0a19 = dados_0a19 %>% filter(Região == 'Nordeste')
-dados_ND_inc_0a19 = dados_0a19 %>% filter(Região == 'Nordeste') %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina')
-dados_ND_comp_0a19 = dados_0a19 %>% filter(Região == 'Nordeste') %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina')
+dados_ND_inc_0a19 = dados_0a19 %>% filter(Região == 'Nordeste') %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina')
+dados_ND_comp_0a19 = dados_0a19 %>% filter(Região == 'Nordeste') %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina')
 
 dados_NT_0a19 = dados_0a19 %>% filter(Região == 'Norte')
-dados_NT_inc_0a19 = dados_0a19 %>% filter(Região == 'Norte') %>% filter(cidade == 'Macapá')
-dados_NT_comp_0a19 = dados_0a19 %>% filter(Região == 'Norte') %>% filter(cidade != 'Macapá')
+dados_NT_inc_0a19 = dados_0a19 %>% filter(Região == 'Norte') %>% filter(cidade_nome == 'Macapá')
+dados_NT_comp_0a19 = dados_0a19 %>% filter(Região == 'Norte') %>% filter(cidade_nome != 'Macapá')
 
 dados_Sud_0a19 = dados_0a19 %>% filter(Região == 'Sudeste')
 dados_Sul_0a19 = dados_0a19 %>% filter(Região == 'Sul')
@@ -378,12 +481,12 @@ dados_Sul_0a19 = dados_0a19 %>% filter(Região == 'Sul')
 dados_80mais = dados %>% filter(idade_cat == '80 anos ou mais')
 dados_CO_80mais = dados_80mais %>% filter(Região == 'Centro-Oeste')
 dados_ND_80mais = dados_80mais %>% filter(Região == 'Nordeste')
-dados_ND_inc_80mais = dados_80mais %>% filter(Região == 'Nordeste') %>% filter(cidade == 'Maceió' | cidade == 'São Luís' | cidade == 'Teresina')
-dados_ND_comp_80mais = dados_80mais %>% filter(Região == 'Nordeste') %>% filter(cidade != 'Maceió' & cidade != 'São Luís' & cidade != 'Teresina')
+dados_ND_inc_80mais = dados_80mais %>% filter(Região == 'Nordeste') %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina')
+dados_ND_comp_80mais = dados_80mais %>% filter(Região == 'Nordeste') %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina')
 
 dados_NT_80mais = dados_80mais %>% filter(Região == 'Norte')
-dados_NT_inc_80mais = dados_80mais %>% filter(Região == 'Norte') %>% filter(cidade == 'Macapá')
-dados_NT_comp_80mais = dados_80mais %>% filter(Região == 'Norte') %>% filter(cidade != 'Macapá')
+dados_NT_inc_80mais = dados_80mais %>% filter(Região == 'Norte') %>% filter(cidade_nome == 'Macapá')
+dados_NT_comp_80mais = dados_80mais %>% filter(Região == 'Norte') %>% filter(cidade_nome != 'Macapá')
 
 dados_Sud_80mais = dados_80mais %>% filter(Região == 'Sudeste')
 dados_Sul_80mais = dados_80mais %>% filter(Região == 'Sul')
@@ -406,385 +509,291 @@ dados_Sul_80mais = dados_80mais %>% filter(Região == 'Sul')
 ####====================================
 #### Comparações por ano - 20 a 79 anos
 ####====================================
-Tabela2.0 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,#
-                  FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade)$tabela,
-                  FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade)$tabela,
-                  FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade)$tabela)
+# Tabela2.0 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,#
+#                   FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade_nome)$tabela,
+#                   FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade_nome)$tabela)
 
-Tabela2.0.1 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    #FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,#
-                    FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas,
-                    FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade)$C.Multiplas)
-Tabela2.0.2 = FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade)$C.Multiplas
-Tabela2.0.3 = FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade)$C.Multiplas
+# Tabela2.0.1 = rbind(FriedmanTeste(dados_20a79$IMC_media, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$IMC_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$IMC_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$IMC_i_media, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$IMC_i_cat_baixo_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$IMC_i_cat_excesso_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$flvreg_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$flvdia_media, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$flvreco_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$refritl5_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$hart_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$diab_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$ANEMIA, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$DEFICIENCIAS_NUTRICIONAIS, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$DIABETES_MELITUS, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$HIPERTENSAO, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$SomaICSAP, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79$TaxaICSAP, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados_20a79_comp$Nota, dados_20a79_comp$ano, dados_20a79_comp$cidade_nome)$C.Multiplas)
+# Tabela2.0.2 = FriedmanTeste(dados_20a79_inc$Nota, dados_20a79_inc$ano, dados_20a79_inc$cidade_nome)$C.Multiplas
+# Tabela2.0.3 = FriedmanTeste(dados_20a79$feijao5_prop, dados_20a79$ano, dados_20a79$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela2.0 %>% as.data.frame(), 'Tabela 2.0.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.1 %>% as.data.frame(), 'Tabela 2.0.1.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.2 %>% as.data.frame(), 'Tabela 2.0.2.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.3 %>% as.data.frame(), 'Tabela 2.0.3.xlsx', rowNames = T)
 
-Tabela2 = rbind(#FriedmanTeste(dados_CO$idade_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$civil_uniaoest_casado_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$anos_de_estudo, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$plano_saude_nao_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_i_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_i_cat_baixo_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$IMC_i_cat_excesso_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$hortareg_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$frutareg_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$flvreg_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$hortadia_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$sofrutadia_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$frutadia_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$flvdia_media, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$tabela,#
-  FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-  #FriedmanTeste(dados_CO$POP, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$DEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$DIABETES_MELITUS, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$HIPERTENSAO, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$SomaICSAP, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade)$tabela,
-  FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade)$tabela)
-# FriedmanTeste(dados_CO$População, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Leitos.SUS, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Taxa.Cob.Planos.Priv, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Cobertura.ESF, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$IVS, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$IDHM, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Gini, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q1_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q2_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q3_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q4_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q5_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q6_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q7_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q8_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q9_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q10_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q11_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q12_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q13_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q14_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q15_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q16_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q17_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q18_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q19_media, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q20_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q21_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q22_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q23_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q24_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q25_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q26_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q27_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q28_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q29_prop, dados_CO$ano, dados_CO$cidade)$tabela,
-# FriedmanTeste(dados_CO$Q30_prop, dados_CO$ano, dados_CO$cidade)$tabela)
+# Tabela2 = rbind(FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$IMC_i_media, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$IMC_i_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$IMC_i_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$flvreg_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$flvdia_media, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$DEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$DIABETES_MELITUS, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$HIPERTENSAO, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$SomaICSAP, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade_nome)$tabela)
 
-Tabela2.1 = rbind(#FriedmanTeste(dados_CO$idade_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$civil_uniaoest_casado_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$anos_de_estudo, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$plano_saude_nao_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_i_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_i_cat_baixo_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$IMC_i_cat_excesso_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$hortareg_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$frutareg_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$flvreg_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$hortadia_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$sofrutadia_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$frutadia_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$flvdia_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_CO$POP, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$DEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$DIABETES_MELITUS, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$HIPERTENSAO, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$SomaICSAP, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade)$C.Multiplas)
-                  # FriedmanTeste(dados_CO$População, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Leitos.SUS, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Taxa.Cob.Planos.Priv, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Cobertura.ESF, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$IVS, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$IDHM, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Gini, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q1_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q2_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q3_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q4_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q5_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q6_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q7_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q8_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q9_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q10_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q11_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q12_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q13_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q14_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q15_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q16_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q17_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q18_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q19_media, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q20_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q21_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q22_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q23_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q24_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q25_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q26_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q27_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q28_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q29_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas,
-                  # FriedmanTeste(dados_CO$Q30_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas)
-Tabela2.2 = FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade)$C.Multiplas
-# Tabela2 = do.call(rbind,lapply(variaveis, function(variavel) {FriedmanTeste(dados_CO[[variavel]], dados_CO$ano, dados_CO$cidade)$tabela}))
-# Tabela2.1 = do.call(rbind,lapply(variaveis, function(variavel) {FriedmanTeste(dados_CO[[variavel]], dados_CO$ano, dados_CO$cidade)$C.Multiplas}))
+# Tabela2.1 = rbind(FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$IMC_i_media, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$IMC_i_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$IMC_i_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$flvreg_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$flvdia_media, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$flvreco_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$refritl5_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$hart_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$diab_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$ANEMIA, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$DEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$DIABETES_MELITUS, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$HIPERTENSAO, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$SomaICSAP, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas)
+
+
+#Tabela2.2 = FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas
+# Tabela2 = do.call(rbind,lapply(variaveis, function(variavel) {FriedmanTeste(dados_CO[[variavel]], dados_CO$ano, dados_CO$cidade_nome)$tabela}))
+# Tabela2.1 = do.call(rbind,lapply(variaveis, function(variavel) {FriedmanTeste(dados_CO[[variavel]], dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas}))
 # write.xlsx(Tabela2 %>% as.data.frame(), 'Tabela 2.xlsx', rowNames = T)
 # write.xlsx(Tabela2.1 %>% as.data.frame(), 'Tabela 2.1.xlsx', rowNames = T)
 # write.xlsx(Tabela2.2 %>% as.data.frame(), 'Tabela 2.2.xlsx', rowNames = T)
 
-Tabela3 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$IMC_cat_excesso_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$IMC_i_media, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$IMC_i_cat_baixo_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$IMC_i_cat_excesso_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$flvreg_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$flvdia_media, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade)$tabela,#
-                FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$DIABETES_MELITUS, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$HIPERTENSAO, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$SomaICSAP, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND$TaxaICSAP, dados_ND$ano, dados_ND$cidade)$tabela,
-                FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade)$tabela,
-                FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade)$tabela)
+# Tabela3 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$IMC_cat_excesso_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$IMC_i_media, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$IMC_i_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$IMC_i_cat_excesso_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$flvreg_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$flvdia_media, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$DIABETES_MELITUS, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$HIPERTENSAO, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$SomaICSAP, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$TaxaICSAP, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade_nome)$tabela)
 
-Tabela3.1 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$IMC_cat_excesso_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$IMC_i_media, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$IMC_i_cat_baixo_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$IMC_i_cat_excesso_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$flvreg_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$flvdia_media, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$DIABETES_MELITUS, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$HIPERTENSAO, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$SomaICSAP, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND$TaxaICSAP, dados_ND$ano, dados_ND$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade)$C.Multiplas)
-Tabela3.2 = FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade)$C.Multiplas
-Tabela3.3 = FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade)$C.Multiplas
+# Tabela3.1 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$IMC_cat_excesso_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$IMC_i_media, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$IMC_i_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$IMC_i_cat_excesso_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$flvreg_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$flvdia_media, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$flvreco_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$refritl5_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   #FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,#
+#                   FriedmanTeste(dados_ND$hart_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$diab_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$ANEMIA, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$DEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$DIABETES_MELITUS, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$HIPERTENSAO, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$SomaICSAP, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$TaxaICSAP, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade_nome)$C.Multiplas)
+# Tabela3.2 = FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade_nome)$C.Multiplas
+# Tabela3.3 = FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas
 
 # write.xlsx(Tabela3 %>% as.data.frame(), 'Tabela 3.xlsx', rowNames = T)
 # write.xlsx(Tabela3.1 %>% as.data.frame(), 'Tabela 3.1.xlsx', rowNames = T)
 # write.xlsx(Tabela3.2 %>% as.data.frame(), 'Tabela 3.2.xlsx', rowNames = T)
 # write.xlsx(Tabela3.3 %>% as.data.frame(), 'Tabela 3.3.xlsx', rowNames = T)
 
-Tabela4 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$IMC_cat_excesso_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$IMC_i_media, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$IMC_i_cat_baixo_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$IMC_i_cat_excesso_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$flvreg_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$flvdia_media, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade)$tabela,#
-                FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$DIABETES_MELITUS, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$HIPERTENSAO, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$SomaICSAP, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT$TaxaICSAP, dados_NT$ano, dados_NT$cidade)$tabela,
-                FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade)$tabela)
-                #FriedmanTeste(dados_NT_inc$Nota, dados_NT_inc$ano, dados_NT_inc$cidade)$tabela)
+# Tabela4 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$IMC_cat_excesso_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$IMC_i_media, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$IMC_i_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$IMC_i_cat_excesso_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$flvreg_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$flvdia_media, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$DIABETES_MELITUS, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$HIPERTENSAO, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$SomaICSAP, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$TaxaICSAP, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade_nome)$tabela)
+#                 #FriedmanTeste(dados_NT_inc$Nota, dados_NT_inc$ano, dados_NT_inc$cidade_nome)$tabela)
 
-Tabela4.1 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$IMC_cat_excesso_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$IMC_i_media, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$IMC_i_cat_baixo_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$IMC_i_cat_excesso_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$flvreg_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$flvdia_media, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$DIABETES_MELITUS, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$HIPERTENSAO, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$SomaICSAP, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT$TaxaICSAP, dados_NT$ano, dados_NT$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade)$C.Multiplas)
-Tabela4.2 = FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade)$C.Multiplas
-#Tabela4.3 = FriedmanTeste(dados_NT_inc$feijao5_prop, dados_NT_inc$ano, dados_NT_inc$cidade)$C.Multiplas
+# Tabela4.1 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$IMC_cat_excesso_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$IMC_i_media, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$IMC_i_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$IMC_i_cat_excesso_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$flvreg_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$flvdia_media, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$flvreco_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$refritl5_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   #FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,#
+#                   FriedmanTeste(dados_NT$hart_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$diab_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$ANEMIA, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$DEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$DIABETES_MELITUS, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$HIPERTENSAO, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$SomaICSAP, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$TaxaICSAP, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade_nome)$C.Multiplas)
+# Tabela4.2 = FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas
+#Tabela4.3 = FriedmanTeste(dados_NT_inc$feijao5_prop, dados_NT_inc$ano, dados_NT_inc$cidade_nome)$C.Multiplas
 
 # write.xlsx(Tabela4 %>% as.data.frame(), 'Tabela 4.xlsx', rowNames = T)
 # write.xlsx(Tabela4.1 %>% as.data.frame(), 'Tabela 4.1.xlsx', rowNames = T)
 # write.xlsx(Tabela4.2 %>% as.data.frame(), 'Tabela 4.2.xlsx', rowNames = T)
 
-Tabela5 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$IMC_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$IMC_i_media, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$IMC_i_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$IMC_i_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$flvreg_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$flvdia_media, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,#
-                FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$DIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$HIPERTENSAO, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$SomaICSAP, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade)$tabela,
-                FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade)$tabela)
+# Tabela5 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$IMC_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$IMC_i_media, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$IMC_i_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$IMC_i_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$flvreg_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$flvdia_media, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$DIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$HIPERTENSAO, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$SomaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade_nome)$tabela)
 
-Tabela5.1 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$IMC_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$IMC_i_media, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$IMC_i_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$IMC_i_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$flvreg_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$flvdia_media, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$DIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$HIPERTENSAO, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$SomaICSAP, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas)
-Tabela5.2 = FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade)$C.Multiplas
+# Tabela5.1 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$IMC_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$IMC_i_media, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$IMC_i_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$IMC_i_cat_excesso_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$flvreg_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$flvdia_media, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$flvreco_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$refritl5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   #FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,#
+#                   FriedmanTeste(dados_Sud$hart_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$diab_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$ANEMIA, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$DEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$DIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$HIPERTENSAO, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$SomaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas)
+# Tabela5.2 = FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas
 
 # write.xlsx(Tabela5 %>% as.data.frame(), 'Tabela 5.xlsx', rowNames = T)
 # write.xlsx(Tabela5.1 %>% as.data.frame(), 'Tabela 5.1.xlsx', rowNames = T)
 # write.xlsx(Tabela5.2 %>% as.data.frame(), 'Tabela 5.2.xlsx', rowNames = T)
 
-Tabela6 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$IMC_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$IMC_i_media, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$IMC_i_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$IMC_i_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$flvreg_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$flvdia_media, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,#
-                FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$DIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$HIPERTENSAO, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$SomaICSAP, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade)$tabela,
-                FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade)$tabela)
+# Tabela6 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$IMC_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$IMC_i_media, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$IMC_i_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$IMC_i_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$flvreg_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$flvdia_media, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$DIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$HIPERTENSAO, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$SomaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade_nome)$tabela)
 
-Tabela6.1 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$IMC_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$IMC_i_media, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$IMC_i_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$IMC_i_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$flvreg_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$flvdia_media, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  #FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,#
-                  FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$DIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$HIPERTENSAO, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$SomaICSAP, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas)
-Tabela6.2 = FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade)$C.Multiplas
+# Tabela6.1 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$IMC_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$IMC_i_media, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$IMC_i_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$IMC_i_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$flvreg_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$flvdia_media, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$flvreco_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$refritl5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   #FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,#
+#                   FriedmanTeste(dados_Sul$hart_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$diab_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$ANEMIA, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$DEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$DIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$HIPERTENSAO, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$SomaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas)
+# Tabela6.2 = FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas
 
 # write.xlsx(Tabela6 %>% as.data.frame(), 'Tabela 6.xlsx', rowNames = T)
 # write.xlsx(Tabela6.1 %>% as.data.frame(), 'Tabela 6.1.xlsx', rowNames = T)
@@ -793,259 +802,1774 @@ Tabela6.2 = FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidad
 ####===================================
 #### Comparações por ano - 0 a 19 anos
 ####===================================
-Tabela7 = rbind(FriedmanTeste(dados_CO_0a19$ANEMIA, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$DIABETES_MELITUS, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$HIPERTENSAO, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$SomaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$TaxaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela,
-                FriedmanTeste(dados_CO_0a19$Nota, dados_CO_0a19$ano, dados_CO_0a19$cidade)$tabela)
-Tabela7.1 = rbind(FriedmanTeste(dados_CO_0a19$ANEMIA, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$DIABETES_MELITUS, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$HIPERTENSAO, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$SomaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$TaxaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_CO_0a19$Nota, dados_CO_0a19$ano, dados_CO_0a19$cidade)$C.Multiplas)
+# Tabela7 = rbind(FriedmanTeste(dados_CO_0a19$ANEMIA, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$DIABETES_MELITUS, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$HIPERTENSAO, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$SomaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$TaxaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO_0a19$Nota, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$tabela)
+# Tabela7.1 = rbind(FriedmanTeste(dados_CO_0a19$ANEMIA, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$DIABETES_MELITUS, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$HIPERTENSAO, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$SomaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$TaxaICSAP, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO_0a19$Nota, dados_CO_0a19$ano, dados_CO_0a19$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela7 %>% as.data.frame(), 'Tabela 7.xlsx', rowNames = T)
 # write.xlsx(Tabela7.1 %>% as.data.frame(), 'Tabela 7.1.xlsx', rowNames = T)
 
-Tabela8 = rbind(FriedmanTeste(dados_ND_0a19$ANEMIA, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_0a19$DIABETES_MELITUS, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_0a19$HIPERTENSAO, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_0a19$SomaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_0a19$TaxaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_comp_0a19$Nota, dados_ND_comp_0a19$ano, dados_ND_comp_0a19$cidade)$tabela,
-                FriedmanTeste(dados_ND_inc_0a19$Nota, dados_ND_inc_0a19$ano, dados_ND_inc_0a19$cidade)$tabela)
-Tabela8.1 = rbind(FriedmanTeste(dados_ND_0a19$ANEMIA, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_0a19$DIABETES_MELITUS, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_0a19$HIPERTENSAO, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_0a19$SomaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_0a19$TaxaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_comp_0a19$Nota, dados_ND_comp_0a19$ano, dados_ND_comp_0a19$cidade)$C.Multiplas)
-Tabela8.2 = FriedmanTeste(dados_ND_inc_0a19$Nota, dados_ND_inc_0a19$ano, dados_ND_inc_0a19$cidade)$C.Multiplas
+# Tabela8 = rbind(FriedmanTeste(dados_ND_0a19$ANEMIA, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_0a19$DIABETES_MELITUS, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_0a19$HIPERTENSAO, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_0a19$SomaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_0a19$TaxaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_comp_0a19$Nota, dados_ND_comp_0a19$ano, dados_ND_comp_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_inc_0a19$Nota, dados_ND_inc_0a19$ano, dados_ND_inc_0a19$cidade_nome)$tabela)
+# Tabela8.1 = rbind(FriedmanTeste(dados_ND_0a19$ANEMIA, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_0a19$DIABETES_MELITUS, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_0a19$HIPERTENSAO, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_0a19$SomaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_0a19$TaxaICSAP, dados_ND_0a19$ano, dados_ND_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_comp_0a19$Nota, dados_ND_comp_0a19$ano, dados_ND_comp_0a19$cidade_nome)$C.Multiplas)
+# Tabela8.2 = FriedmanTeste(dados_ND_inc_0a19$Nota, dados_ND_inc_0a19$ano, dados_ND_inc_0a19$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela8 %>% as.data.frame(), 'Tabela 8.xlsx', rowNames = T)
 # write.xlsx(Tabela8.1 %>% as.data.frame(), 'Tabela 8.1.xlsx', rowNames = T)
 # write.xlsx(Tabela8.2 %>% as.data.frame(), 'Tabela 8.2.xlsx', rowNames = T)
 
-Tabela9 = rbind(FriedmanTeste(dados_NT_0a19$ANEMIA, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_0a19$DIABETES_MELITUS, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_0a19$HIPERTENSAO, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_0a19$SomaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_0a19$TaxaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade)$tabela,
-                FriedmanTeste(dados_NT_comp_0a19$Nota, dados_NT_comp_0a19$ano, dados_NT_comp_0a19$cidade)$tabela)
-Tabela9.1 = rbind(FriedmanTeste(dados_NT_0a19$ANEMIA, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_0a19$DIABETES_MELITUS, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_0a19$HIPERTENSAO, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_0a19$SomaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_0a19$TaxaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_NT_comp_0a19$Nota, dados_NT_comp_0a19$ano, dados_NT_comp_0a19$cidade)$C.Multiplas)
+# Tabela9 = rbind(FriedmanTeste(dados_NT_0a19$ANEMIA, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_0a19$DIABETES_MELITUS, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_0a19$HIPERTENSAO, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_0a19$SomaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_0a19$TaxaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT_comp_0a19$Nota, dados_NT_comp_0a19$ano, dados_NT_comp_0a19$cidade_nome)$tabela)
+# Tabela9.1 = rbind(FriedmanTeste(dados_NT_0a19$ANEMIA, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_0a19$DIABETES_MELITUS, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_0a19$HIPERTENSAO, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_0a19$SomaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_0a19$TaxaICSAP, dados_NT_0a19$ano, dados_NT_0a19$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT_comp_0a19$Nota, dados_NT_comp_0a19$ano, dados_NT_comp_0a19$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela9 %>% as.data.frame(), 'Tabela 9.xlsx', rowNames = T)
 # write.xlsx(Tabela9.1 %>% as.data.frame(), 'Tabela 9.1.xlsx', rowNames = T)
 
-Tabela10 = rbind(FriedmanTeste(dados_Sud_0a19$ANEMIA, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$DIABETES_MELITUS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$HIPERTENSAO, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$SomaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$TaxaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_0a19$Nota, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$tabela)
-Tabela10.1 = rbind(FriedmanTeste(dados_Sud_0a19$ANEMIA, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$DIABETES_MELITUS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$HIPERTENSAO, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$SomaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$TaxaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_0a19$Nota, dados_Sud_0a19$ano, dados_Sud_0a19$cidade)$C.Multiplas)
+# Tabela10 = rbind(FriedmanTeste(dados_Sud_0a19$ANEMIA, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$DIABETES_MELITUS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$HIPERTENSAO, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$SomaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$TaxaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_0a19$Nota, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$tabela)
+# Tabela10.1 = rbind(FriedmanTeste(dados_Sud_0a19$ANEMIA, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$DIABETES_MELITUS, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$HIPERTENSAO, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$SomaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$TaxaICSAP, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_0a19$Nota, dados_Sud_0a19$ano, dados_Sud_0a19$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela10 %>% as.data.frame(), 'Tabela 10.xlsx', rowNames = T)
 # write.xlsx(Tabela10.1 %>% as.data.frame(), 'Tabela 10.1.xlsx', rowNames = T)
 
-Tabela11 = rbind(FriedmanTeste(dados_Sul_0a19$ANEMIA, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$DIABETES_MELITUS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$HIPERTENSAO, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$SomaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$TaxaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_0a19$Nota, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$tabela)
-Tabela11.1 = rbind(FriedmanTeste(dados_Sul_0a19$ANEMIA, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$DIABETES_MELITUS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$HIPERTENSAO, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$SomaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$TaxaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_0a19$Nota, dados_Sul_0a19$ano, dados_Sul_0a19$cidade)$C.Multiplas)
+# Tabela11 = rbind(FriedmanTeste(dados_Sul_0a19$ANEMIA, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$DIABETES_MELITUS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$HIPERTENSAO, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$SomaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$TaxaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_0a19$Nota, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$tabela)
+# Tabela11.1 = rbind(FriedmanTeste(dados_Sul_0a19$ANEMIA, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$DEFICIENCIAS_NUTRICIONAIS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$DIABETES_MELITUS, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$HIPERTENSAO, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$SomaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$TaxaICSAP, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_0a19$Nota, dados_Sul_0a19$ano, dados_Sul_0a19$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela11 %>% as.data.frame(), 'Tabela 11.xlsx', rowNames = T)
 # write.xlsx(Tabela11.1 %>% as.data.frame(), 'Tabela 11.1.xlsx', rowNames = T)
 
-####====================================
-#### Comparações por ano - 20 a 79 anos
-####====================================
-Tabela12 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$IMC_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$IMC_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$IMC_i_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$IMC_i_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$IMC_i_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$flvreg_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$flvdia_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade)$tabela)
-Tabela12.1 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$IMC_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$IMC_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$IMC_i_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$IMC_i_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$IMC_i_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$flvreg_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$flvdia_media, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas)
-Tabela12.2 = FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade)$C.Multiplas
+####=======================================
+#### Comparações por ano - 80 anos ou mais
+####=======================================
+# Tabela12 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$IMC_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$IMC_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$IMC_i_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$IMC_i_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$IMC_i_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$flvreg_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$flvdia_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,#
+#                  FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$tabela)
+# Tabela12.1 = rbind(FriedmanTeste(dados_CO_80mais$IMC_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$IMC_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$IMC_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$IMC_i_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$IMC_i_cat_baixo_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$IMC_i_cat_excesso_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$flvreg_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$flvdia_media, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$flvreco_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$refritl5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$hart_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$diab_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_CO_80mais$Nota, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas)
+# Tabela12.2 = FriedmanTeste(dados_CO_80mais$feijao5_prop, dados_CO_80mais$ano, dados_CO_80mais$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela12 %>% as.data.frame(), 'Tabela 12.xlsx', rowNames = T)
 # write.xlsx(Tabela12.1 %>% as.data.frame(), 'Tabela 12.1.xlsx', rowNames = T)
 # write.xlsx(Tabela12.2 %>% as.data.frame(), 'Tabela 12.2.xlsx', rowNames = T)
 
-Tabela13 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$IMC_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$IMC_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$IMC_i_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$IMC_i_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$IMC_i_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$flvreg_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$flvdia_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$feijao5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,#
-                FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade)$tabela,
-                FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade)$tabela)
-Tabela13.1 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$IMC_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$IMC_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$IMC_i_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$IMC_i_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$IMC_i_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$flvreg_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$flvdia_media, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas,
-                  FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade)$C.Multiplas)
-Tabela13.2 = FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade)$C.Multiplas
-Tabela13.3 = FriedmanTeste(dados_ND_80mais$feijao5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade)$C.Multiplas
+# Tabela13 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$IMC_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$IMC_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$IMC_i_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$IMC_i_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$IMC_i_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$flvreg_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$flvdia_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$feijao5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,#
+#                 FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade_nome)$tabela)
+# Tabela13.1 = rbind(FriedmanTeste(dados_ND_80mais$IMC_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$IMC_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$IMC_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$IMC_i_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$IMC_i_cat_baixo_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$IMC_i_cat_excesso_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$flvreg_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$flvdia_media, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$flvreco_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$refritl5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$hart_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_80mais$diab_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND_comp_80mais$Nota, dados_ND_comp_80mais$ano, dados_ND_comp_80mais$cidade_nome)$C.Multiplas)
+# Tabela13.2 = FriedmanTeste(dados_ND_inc_80mais$Nota, dados_ND_inc_80mais$ano, dados_ND_inc_80mais$cidade_nome)$C.Multiplas
+# Tabela13.3 = FriedmanTeste(dados_ND_80mais$feijao5_prop, dados_ND_80mais$ano, dados_ND_80mais$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela13 %>% as.data.frame(), 'Tabela 13.xlsx', rowNames = T)
 # write.xlsx(Tabela13.1 %>% as.data.frame(), 'Tabela 13.1.xlsx', rowNames = T)
 # write.xlsx(Tabela13.2 %>% as.data.frame(), 'Tabela 13.2.xlsx', rowNames = T)
 # write.xlsx(Tabela13.3 %>% as.data.frame(), 'Tabela 13.3.xlsx', rowNames = T)
 
-Tabela14 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$IMC_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$IMC_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$IMC_i_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$IMC_i_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$IMC_i_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$flvreg_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$flvdia_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade)$tabela)
-Tabela14.1 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$IMC_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$IMC_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$IMC_i_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$IMC_i_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$IMC_i_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$flvreg_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$flvdia_media, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade)$C.Multiplas)
-Tabela14.2 = FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade)$C.Multiplas
+# Tabela14 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$IMC_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$IMC_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$IMC_i_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$IMC_i_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$IMC_i_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$flvreg_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$flvdia_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,#
+#                  FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade_nome)$tabela)
+# Tabela14.1 = rbind(FriedmanTeste(dados_NT_80mais$IMC_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$IMC_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$IMC_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$IMC_i_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$IMC_i_cat_baixo_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$IMC_i_cat_excesso_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$flvreg_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$flvdia_media, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$flvreco_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$refritl5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$hart_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_80mais$diab_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_NT_comp_80mais$Nota, dados_NT_comp_80mais$ano, dados_NT_comp_80mais$cidade_nome)$C.Multiplas)
+# Tabela14.2 = FriedmanTeste(dados_NT_80mais$feijao5_prop, dados_NT_80mais$ano, dados_NT_80mais$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela14 %>% as.data.frame(), 'Tabela 14.xlsx', rowNames = T)
 # write.xlsx(Tabela14.1 %>% as.data.frame(), 'Tabela 14.1.xlsx', rowNames = T)
 # write.xlsx(Tabela14.2 %>% as.data.frame(), 'Tabela 14.2.xlsx', rowNames = T)
 
-Tabela15 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$IMC_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$IMC_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$IMC_i_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$IMC_i_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$IMC_i_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$flvreg_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$flvdia_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$tabela)
-Tabela15.1 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$IMC_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$IMC_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$IMC_i_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$IMC_i_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$IMC_i_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$flvreg_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$flvdia_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas)
-Tabela15.2 = FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade)$C.Multiplas
+# Tabela15 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$IMC_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$IMC_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$IMC_i_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$IMC_i_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$IMC_i_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$flvreg_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$flvdia_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,#
+#                  FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$tabela)
+# Tabela15.1 = rbind(FriedmanTeste(dados_Sud_80mais$IMC_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$IMC_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$IMC_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$IMC_i_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$IMC_i_cat_baixo_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$IMC_i_cat_excesso_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$flvreg_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$flvdia_media, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$flvreco_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$refritl5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$hart_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$diab_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sud_80mais$Nota, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas)
+# Tabela15.2 = FriedmanTeste(dados_Sud_80mais$feijao5_prop, dados_Sud_80mais$ano, dados_Sud_80mais$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela15 %>% as.data.frame(), 'Tabela 15.xlsx', rowNames = T)
 # write.xlsx(Tabela15.1 %>% as.data.frame(), 'Tabela 15.1.xlsx', rowNames = T)
 # write.xlsx(Tabela15.2 %>% as.data.frame(), 'Tabela 15.2.xlsx', rowNames = T)
 
-Tabela16 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$IMC_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$IMC_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$IMC_i_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$IMC_i_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$IMC_i_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$flvreg_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$flvdia_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,#
-                 FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela,
-                 FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$tabela)
-Tabela16.1 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$IMC_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$IMC_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$IMC_i_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$IMC_i_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$IMC_i_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$flvreg_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$flvdia_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas,
-                   FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas)
-Tabela16.2 = FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade)$C.Multiplas
+# Tabela16 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$IMC_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$IMC_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$IMC_i_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$IMC_i_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$IMC_i_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$flvreg_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$flvdia_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,#
+#                  FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela,
+#                  FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$tabela)
+# Tabela16.1 = rbind(FriedmanTeste(dados_Sul_80mais$IMC_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$IMC_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$IMC_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$IMC_i_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$IMC_i_cat_baixo_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$IMC_i_cat_excesso_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$flvreg_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$flvdia_media, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$flvreco_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$refritl5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$hart_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$diab_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas,
+#                    FriedmanTeste(dados_Sul_80mais$Nota, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas)
+# Tabela16.2 = FriedmanTeste(dados_Sul_80mais$feijao5_prop, dados_Sul_80mais$ano, dados_Sul_80mais$cidade_nome)$C.Multiplas
 # write.xlsx(Tabela16 %>% as.data.frame(), 'Tabela 16.xlsx', rowNames = T)
 # write.xlsx(Tabela16.1 %>% as.data.frame(), 'Tabela 16.1.xlsx', rowNames = T)
 # write.xlsx(Tabela16.2 %>% as.data.frame(), 'Tabela 16.2.xlsx', rowNames = T)
+
+####=========
+#### Modelos
+####=========
+#Respostas: IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, refritl5_prop, feijao5_prop, hart_prop, diab_prop e TaxaICSAP
+#Explicativas: sexo, faixa etária, anos de estudo, plano de saúde, Nota (IVS, IDH, Gini)
+
+####========================
+#### IMC_i_cat_excesso_prop
+####========================
+fit_IMC = lm(IMC_i_cat_excesso_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_IMC0 = subset(fit_IMC$residuals, dados_20a79$ano == 2010)
+res_IMC1 = subset(fit_IMC$residuals, dados_20a79$ano == 2011)
+res_IMC2 = subset(fit_IMC$residuals, dados_20a79$ano == 2012)
+res_IMC3 = subset(fit_IMC$residuals, dados_20a79$ano == 2013)
+res_IMC4 = subset(fit_IMC$residuals, dados_20a79$ano == 2014)
+res_IMC5 = subset(fit_IMC$residuals, dados_20a79$ano == 2015)
+res_IMC6 = subset(fit_IMC$residuals, dados_20a79$ano == 2016)
+res_IMC7 = subset(fit_IMC$residuals, dados_20a79$ano == 2017)
+res_IMC8 = subset(fit_IMC$residuals, dados_20a79$ano == 2018)
+res_IMC9 = subset(fit_IMC$residuals, dados_20a79$ano == 2019)
+
+res_IMC = data.frame(res_IMC0, res_IMC1, res_IMC2, res_IMC3, res_IMC4, res_IMC5, res_IMC6, res_IMC7, res_IMC8, res_IMC9)
+cor(res_IMC)
+cov(res_IMC)
+
+uni_imc1 = geeglm(IMC_i_cat_excesso_prop ~ sexo, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc2 = geeglm(IMC_i_cat_excesso_prop ~ idade_cat, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,idade_cat,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc3 = geeglm(IMC_i_cat_excesso_prop ~ anos_de_estudo, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc4 = geeglm(IMC_i_cat_excesso_prop ~ plano_saude_nao_prop, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc5 = geeglm(IMC_i_cat_excesso_prop ~ Nota, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,Nota,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc6 = geeglm(IMC_i_cat_excesso_prop ~ IVS, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,
+                                                plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc7 = geeglm(IMC_i_cat_excesso_prop ~ IDHM, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,
+                                                plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_imc8 = geeglm(IMC_i_cat_excesso_prop ~ Gini, id = cidade, 
+                  data = dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,
+                                                plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$IMC_i_cat_excesso_prop,dados_20a79$IVS)
+cor.test(dados_20a79$IMC_i_cat_excesso_prop,dados_20a79$Gini)
+cor.test(dados_20a79$IMC_i_cat_excesso_prop,dados_20a79$IDHM)
+
+Tabela17.1 = rbind(TabelaGEENormal(uni_imc1),TabelaGEENormal(uni_imc2),
+                   TabelaGEENormal(uni_imc3),TabelaGEENormal(uni_imc4),
+                   TabelaGEENormal(uni_imc5),#TabelaGEENormal(uni_imc6),
+                   TabelaGEENormal(uni_imc7)#TabelaGEENormal(uni_imc8)
+                   )
+#write.xlsx(Tabela17.1 %>% as.data.frame(), 'Tabela 17.1.xlsx', rowNames = F)
+
+#Sem interação: Nota e anos_de_estudo
+multi_semint_imc1 = geeglm(IMC_i_cat_excesso_prop ~ sexo + idade_cat + #anos_de_estudo + 
+                             plano_saude_nao_prop + #Nota + 
+                             IDHM, 
+                           id = cidade, data = dados_20a79 %>% 
+                             select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                           family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_imc1)
+#write.xlsx(TabelaGEENormal(multi_semint_imc1) %>% as.data.frame(), 'Tabela 17.2.xlsx', rowNames = F)
+
+ks.test(multi_semint_imc1$residuals, "pnorm", mean(multi_semint_imc1$residuals, na.rm = T), 
+        sd(multi_semint_imc1$residuals, na.rm = T))
+qqnorm(multi_semint_imc1$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_semint_imc1$residuals)
+
+#Com interação
+multi_imc1 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                      plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc1)
+
+#idade_cat*plano_saude_nao_prop
+multi_imc2 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                      plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc2)
+
+#anos_de_estudo*IDHM
+multi_imc3 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc3)
+
+#sexo*Nota
+multi_imc4 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc4)
+
+#sexo*plano_saude_nao_prop
+multi_imc5 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc5)
+
+#plano_saude_nao_prop*IDHM
+multi_imc6 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*IDHM +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc6)
+
+#sexo*IDHM
+multi_imc7 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
+                      idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc7)
+
+#idade_cat*Nota
+multi_imc8 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
+                      idade_cat*anos_de_estudo + idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc8)
+
+#idade_cat*anos_de_estudo
+multi_imc9 = geeglm(IMC_i_cat_excesso_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
+                      idade_cat*IDHM +
+                      anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                      plano_saude_nao_prop*Nota +
+                      Nota*IDHM, 
+                    id = cidade, data = dados_20a79 %>% 
+                      select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_imc9)
+#write.xlsx(TabelaGEENormal(multi_imc9) %>% as.data.frame(), 'Tabela 17.3.xlsx', rowNames = F)
+
+QIC(multi_imc9)
+hist(multi_imc9$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_imc9$residuals),max(multi_imc9$residuals), length.out = 100),
+      dnorm(seq(min(multi_imc9$residuals),max(multi_imc9$residuals), length.out = 100),
+            mean=mean(multi_imc9$residuals),sd=sd(multi_imc9$residuals)))
+
+qqnorm(multi_imc9$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_imc9$residuals)
+
+ks.test(multi_imc9$residuals, "pnorm", mean(multi_imc9$residuals, na.rm = T), sd(multi_imc9$residuals, na.rm = T))
+
+####=============
+#### flvreg_prop
+####=============
+hist(dados_20a79$flvreg_prop)
+ks.test(dados_20a79$flvreg_prop, "pnorm", mean(dados_20a79$flvreg_prop, na.rm = T), sd(dados_20a79$flvreg_prop, na.rm = T))
+
+fit_flvreg = lm(flvreg_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_flvreg0 = subset(fit_flvreg$residuals, dados_20a79$ano == 2010)
+res_flvreg1 = subset(fit_flvreg$residuals, dados_20a79$ano == 2011)
+res_flvreg2 = subset(fit_flvreg$residuals, dados_20a79$ano == 2012)
+res_flvreg3 = subset(fit_flvreg$residuals, dados_20a79$ano == 2013)
+res_flvreg4 = subset(fit_flvreg$residuals, dados_20a79$ano == 2014)
+res_flvreg5 = subset(fit_flvreg$residuals, dados_20a79$ano == 2015)
+res_flvreg6 = subset(fit_flvreg$residuals, dados_20a79$ano == 2016)
+res_flvreg7 = subset(fit_flvreg$residuals, dados_20a79$ano == 2017)
+res_flvreg8 = subset(fit_flvreg$residuals, dados_20a79$ano == 2018)
+res_flvreg9 = subset(fit_flvreg$residuals, dados_20a79$ano == 2019)
+
+res_flvreg = data.frame(res_flvreg0, res_flvreg1, res_flvreg2, res_flvreg3, res_flvreg4, res_flvreg5, res_flvreg6, res_flvreg7, res_flvreg8, res_flvreg9)
+cor(res_flvreg)
+cov(res_flvreg)
+
+uni_flvreg1 = geeglm(flvreg_prop ~ sexo, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,sexo,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg2 = geeglm(flvreg_prop ~ idade_cat, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,idade_cat,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg3 = geeglm(flvreg_prop ~ anos_de_estudo, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg4 = geeglm(flvreg_prop ~ plano_saude_nao_prop, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg5 = geeglm(flvreg_prop ~ Nota, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,sexo,Nota,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg6 = geeglm(flvreg_prop ~ IVS, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,sexo,idade_cat,anos_de_estudo,
+                                                   plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg7 = geeglm(flvreg_prop ~ IDHM, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,sexo,idade_cat,anos_de_estudo,
+                                                   plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreg8 = geeglm(flvreg_prop ~ Gini, id = cidade, 
+                     data = dados_20a79 %>% select(flvreg_prop,sexo,idade_cat,anos_de_estudo,
+                                                   plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$flvreg_prop,dados_20a79$IVS)
+cor.test(dados_20a79$flvreg_prop,dados_20a79$Gini)
+cor.test(dados_20a79$flvreg_prop,dados_20a79$IDHM)
+
+Tabela18.1 = rbind(TabelaGEENormal(uni_flvreg1),TabelaGEENormal(uni_flvreg2),
+                   TabelaGEENormal(uni_flvreg3),TabelaGEENormal(uni_flvreg4),
+                   TabelaGEENormal(uni_flvreg5),#TabelaGEENormal(uni_flvreg6),
+                   TabelaGEENormal(uni_flvreg7)#TabelaGEENormal(uni_flvreg8)
+)
+#write.xlsx(Tabela18.1 %>% as.data.frame(), 'Tabela 18.1.xlsx', rowNames = F)
+
+#Sem interação
+multi_semint_flvreg1 = geeglm(flvreg_prop ~ sexo + idade_cat + anos_de_estudo + 
+                             plano_saude_nao_prop + Nota + 
+                             IDHM, 
+                           id = cidade, data = dados_20a79 %>% 
+                             select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                           family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_flvreg1)
+#write.xlsx(TabelaGEENormal(multi_semint_flvreg1) %>% as.data.frame(), 'Tabela 18.2.xlsx', rowNames = F)
+
+#Com interação
+multi_flvreg1 = geeglm(flvreg_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                         Nota*IDHM, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg1)
+
+#Nota*IDHM
+multi_flvreg2 = geeglm(flvreg_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg2)
+
+#plano_saude_nao_prop*IDHM
+multi_flvreg3 = geeglm(flvreg_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg3)
+
+#sexo*Nota
+multi_flvreg4 = geeglm(flvreg_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg4)
+
+#idade_cat*IDHM
+multi_flvreg5 = geeglm(flvreg_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg5)
+
+#sexo*idade_cat
+multi_flvreg6 = geeglm(flvreg_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg6)
+
+#sexo*plano_saude_nao_prop
+multi_flvreg7 = geeglm(flvreg_prop ~ sexo*anos_de_estudo + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg7)
+
+#anos_de_estudo*Nota
+multi_flvreg8 = geeglm(flvreg_prop ~ sexo*anos_de_estudo + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                         plano_saude_nao_prop*Nota, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg8)
+
+#plano_saude_nao_prop*Nota
+multi_flvreg9 = geeglm(flvreg_prop ~ sexo*anos_de_estudo + sexo*IDHM +
+                         idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM, 
+                       id = cidade, data = dados_20a79 %>% 
+                         select(flvreg_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreg9)
+#write.xlsx(TabelaGEENormal(multi_flvreg9) %>% as.data.frame(), 'Tabela 18.3.xlsx', rowNames = F)
+
+hist(multi_flvreg9$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_flvreg9$residuals),max(multi_flvreg9$residuals), length.out = 100),
+      dnorm(seq(min(multi_flvreg9$residuals),max(multi_flvreg9$residuals), length.out = 100),
+            mean=mean(multi_flvreg9$residuals),sd=sd(multi_flvreg9$residuals)))
+
+qqnorm(multi_flvreg9$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_flvreg9$residuals)
+
+ks.test(multi_flvreg9$residuals, "pnorm", mean(multi_flvreg9$residuals, na.rm = T), sd(multi_flvreg9$residuals, na.rm = T))
+
+####==============
+#### flvreco_prop
+####==============
+hist(dados_20a79$flvreco_prop)
+ks.test(dados_20a79$flvreco_prop, "pnorm", mean(dados_20a79$flvreco_prop, na.rm = T), sd(dados_20a79$flvreco_prop, na.rm = T))
+
+fit_flvreco = lm(flvreco_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_flvreco0 = subset(fit_flvreco$residuals, dados_20a79$ano == 2010)
+res_flvreco1 = subset(fit_flvreco$residuals, dados_20a79$ano == 2011)
+res_flvreco2 = subset(fit_flvreco$residuals, dados_20a79$ano == 2012)
+res_flvreco3 = subset(fit_flvreco$residuals, dados_20a79$ano == 2013)
+res_flvreco4 = subset(fit_flvreco$residuals, dados_20a79$ano == 2014)
+res_flvreco5 = subset(fit_flvreco$residuals, dados_20a79$ano == 2015)
+res_flvreco6 = subset(fit_flvreco$residuals, dados_20a79$ano == 2016)
+res_flvreco7 = subset(fit_flvreco$residuals, dados_20a79$ano == 2017)
+res_flvreco8 = subset(fit_flvreco$residuals, dados_20a79$ano == 2018)
+res_flvreco9 = subset(fit_flvreco$residuals, dados_20a79$ano == 2019)
+
+res_flvreco = data.frame(res_flvreco0, res_flvreco1, res_flvreco2, res_flvreco3, res_flvreco4, res_flvreco5, res_flvreco6, res_flvreco7, res_flvreco8, res_flvreco9)
+cor(res_flvreco)
+cov(res_flvreco)
+
+uni_flvreco1 = geeglm(flvreco_prop ~ sexo, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,sexo,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco2 = geeglm(flvreco_prop ~ idade_cat, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,idade_cat,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco3 = geeglm(flvreco_prop ~ anos_de_estudo, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco4 = geeglm(flvreco_prop ~ plano_saude_nao_prop, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco5 = geeglm(flvreco_prop ~ Nota, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,sexo,Nota,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco6 = geeglm(flvreco_prop ~ IVS, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco7 = geeglm(flvreco_prop ~ IDHM, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_flvreco8 = geeglm(flvreco_prop ~ Gini, id = cidade, 
+                      data = dados_20a79 %>% select(flvreco_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$flvreco_prop,dados_20a79$IVS)
+cor.test(dados_20a79$flvreco_prop,dados_20a79$Gini)
+cor.test(dados_20a79$flvreco_prop,dados_20a79$IDHM)
+
+Tabela19.1 = rbind(TabelaGEENormal(uni_flvreco1),TabelaGEENormal(uni_flvreco2),
+                   TabelaGEENormal(uni_flvreco3),TabelaGEENormal(uni_flvreco4),
+                   TabelaGEENormal(uni_flvreco5),#TabelaGEENormal(uni_flvreco6),
+                   TabelaGEENormal(uni_flvreco7)#TabelaGEENormal(uni_flvreco8)
+)
+#write.xlsx(Tabela19.1 %>% as.data.frame(), 'Tabela 19.1.xlsx', rowNames = F)
+
+#Sem interação: Nota
+multi_semint_flvreco1 = geeglm(flvreco_prop ~ sexo + idade_cat + anos_de_estudo + 
+                                plano_saude_nao_prop + #Nota + 
+                                IDHM, 
+                              id = cidade, data = dados_20a79 %>% 
+                                select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                              family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_flvreco1)
+#write.xlsx(TabelaGEENormal(multi_semint_flvreco1) %>% as.data.frame(), 'Tabela 19.2.xlsx', rowNames = F)
+
+#Com interação
+multi_flvreco1 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                          Nota*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco1)
+
+#sexo*anos_de_estudo
+multi_flvreco2 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                          Nota*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco2)
+
+#anos_de_estudo*Nota
+multi_flvreco3 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                          Nota*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco3)
+
+#Nota*IDHM
+multi_flvreco4 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco4)
+
+#idade_cat*IDHM
+multi_flvreco5 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco5)
+
+#sexo*Nota
+multi_flvreco6 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco6)
+
+#plano_saude_nao_prop*IDHM
+multi_flvreco7 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM +
+                          plano_saude_nao_prop*Nota, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco7)
+
+#plano_saude_nao_prop*Nota
+multi_flvreco8 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*IDHM +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco8)
+
+#idade_cat*Nota
+multi_flvreco9 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*IDHM + Nota +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco9)
+
+#Nota
+multi_flvreco10 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*plano_saude_nao_prop + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco10)
+
+#sexo*plano_saude_nao_prop
+multi_flvreco11 = geeglm(flvreco_prop ~ sexo*idade_cat + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(flvreco_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_flvreco11)
+
+#write.xlsx(TabelaGEENormal(multi_flvreco11) %>% as.data.frame(), 'Tabela 19.3.xlsx', rowNames = F)
+
+hist(multi_flvreco9$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_flvreco9$residuals),max(multi_flvreco9$residuals), length.out = 100),
+      dnorm(seq(min(multi_flvreco9$residuals),max(multi_flvreco9$residuals), length.out = 100),
+            mean=mean(multi_flvreco9$residuals),sd=sd(multi_flvreco9$residuals)))
+
+qqnorm(multi_flvreco9$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_flvreco9$residuals)
+
+ks.test(multi_flvreco9$residuals, "pnorm", mean(multi_flvreco9$residuals, na.rm = T), sd(multi_flvreco9$residuals, na.rm = T))
+
+####===============
+#### refritl5_prop
+####===============
+hist(dados_20a79$refritl5_prop)
+ks.test(dados_20a79$refritl5_prop, "pnorm", mean(dados_20a79$refritl5_prop, na.rm = T), sd(dados_20a79$refritl5_prop, na.rm = T))
+
+fit_refritl5 = lm(refritl5_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_refritl50 = subset(fit_refritl5$residuals, dados_20a79$ano == 2010)
+res_refritl51 = subset(fit_refritl5$residuals, dados_20a79$ano == 2011)
+res_refritl52 = subset(fit_refritl5$residuals, dados_20a79$ano == 2012)
+res_refritl53 = subset(fit_refritl5$residuals, dados_20a79$ano == 2013)
+res_refritl54 = subset(fit_refritl5$residuals, dados_20a79$ano == 2014)
+res_refritl55 = subset(fit_refritl5$residuals, dados_20a79$ano == 2015)
+res_refritl56 = subset(fit_refritl5$residuals, dados_20a79$ano == 2016)
+res_refritl57 = subset(fit_refritl5$residuals, dados_20a79$ano == 2017)
+res_refritl58 = subset(fit_refritl5$residuals, dados_20a79$ano == 2018)
+res_refritl59 = subset(fit_refritl5$residuals, dados_20a79$ano == 2019)
+
+res_refritl5 = data.frame(res_refritl50, res_refritl51, res_refritl52, res_refritl53, res_refritl54, res_refritl55, res_refritl56, res_refritl57, res_refritl58, res_refritl59)
+cor(res_refritl5)
+cov(res_refritl5)
+
+uni_refritl51 = geeglm(refritl5_prop ~ sexo, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,sexo,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl52 = geeglm(refritl5_prop ~ idade_cat, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,idade_cat,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl53 = geeglm(refritl5_prop ~ anos_de_estudo, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl54 = geeglm(refritl5_prop ~ plano_saude_nao_prop, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl55 = geeglm(refritl5_prop ~ Nota, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,sexo,Nota,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl56 = geeglm(refritl5_prop ~ IVS, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl57 = geeglm(refritl5_prop ~ IDHM, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_refritl58 = geeglm(refritl5_prop ~ Gini, id = cidade, 
+                       data = dados_20a79 %>% select(refritl5_prop,sexo,idade_cat,anos_de_estudo,
+                                                     plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$refritl5_prop,dados_20a79$IVS)
+cor.test(dados_20a79$refritl5_prop,dados_20a79$Gini)
+cor.test(dados_20a79$refritl5_prop,dados_20a79$IDHM)
+
+Tabela20.1 = rbind(TabelaGEENormal(uni_refritl51),TabelaGEENormal(uni_refritl52),
+                   TabelaGEENormal(uni_refritl53),TabelaGEENormal(uni_refritl54),
+                   TabelaGEENormal(uni_refritl55),#TabelaGEENormal(uni_refritl56),
+                   TabelaGEENormal(uni_refritl57)#TabelaGEENormal(uni_refritl58)
+)
+#write.xlsx(Tabela20.1 %>% as.data.frame(), 'Tabela 20.1.xlsx', rowNames = F)
+
+#Sem interação: plano_saude_nao_prop e anos_de_estudo
+multi_semint_refritl51 = geeglm(refritl5_prop ~ sexo + idade_cat + #anos_de_estudo + 
+                                  #plano_saude_nao_prop + 
+                                  Nota + 
+                                  IDHM, 
+                                id = cidade, data = dados_20a79 %>% 
+                                  select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                                family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_refritl51)
+#write.xlsx(TabelaGEENormal(multi_semint_refritl51) %>% as.data.frame(), 'Tabela 20.2.xlsx', rowNames = F)
+
+#Com interação
+multi_refritl51 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                           Nota*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl51)
+
+#idade_cat*plano_saude_nao_prop
+multi_refritl52 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                           Nota*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl52)
+
+#anos_de_estudo*plano_saude_nao_prop
+multi_refritl53 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*Nota + anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                           Nota*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl53)
+
+#anos_de_estudo*Nota
+multi_refritl54 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                           Nota*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl54)
+
+#sexo*IDHM
+multi_refritl55 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM +
+                           Nota*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl55)
+
+#Nota*IDHM
+multi_refritl56 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota + plano_saude_nao_prop*IDHM, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl56)
+
+#plano_saude_nao_prop*IDHM
+multi_refritl57 = geeglm(refritl5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota +
+                           idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IDHM +
+                           anos_de_estudo*IDHM +
+                           plano_saude_nao_prop*Nota, 
+                         id = cidade, data = dados_20a79 %>% 
+                           select(refritl5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                         family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_refritl57)
+#write.xlsx(TabelaGEENormal(multi_refritl57) %>% as.data.frame(), 'Tabela 20.3.xlsx', rowNames = F)
+
+hist(multi_refritl57$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_refritl57$residuals),max(multi_refritl57$residuals), length.out = 100),
+      dnorm(seq(min(multi_refritl57$residuals),max(multi_refritl57$residuals), length.out = 100),
+            mean=mean(multi_refritl57$residuals),sd=sd(multi_refritl57$residuals)))
+
+qqnorm(multi_refritl57$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_refritl57$residuals)
+
+ks.test(multi_refritl57$residuals, "pnorm", mean(multi_refritl57$residuals, na.rm = T), sd(multi_refritl57$residuals, na.rm = T))
+ks.test(multi_semint_refritl51$residuals, "pnorm", mean(multi_semint_refritl51$residuals, na.rm = T), sd(multi_semint_refritl51$residuals, na.rm = T))
+
+####==============
+#### feijao5_prop
+####==============
+hist(dados_20a79$feijao5_prop)
+ks.test(dados_20a79$feijao5_prop, "pnorm", mean(dados_20a79$feijao5_prop, na.rm = T), sd(dados_20a79$feijao5_prop, na.rm = T))
+
+fit_feijao5 = lm(feijao5_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_feijao50 = subset(fit_feijao5$residuals, dados_20a79$ano == 2010)
+res_feijao51 = subset(fit_feijao5$residuals, dados_20a79$ano == 2011)
+res_feijao52 = subset(fit_feijao5$residuals, dados_20a79$ano == 2012)
+res_feijao53 = subset(fit_feijao5$residuals, dados_20a79$ano == 2013)
+res_feijao54 = subset(fit_feijao5$residuals, dados_20a79$ano == 2014)
+res_feijao55 = subset(fit_feijao5$residuals, dados_20a79$ano == 2015)
+res_feijao56 = subset(fit_feijao5$residuals, dados_20a79$ano == 2016)
+res_feijao57 = subset(fit_feijao5$residuals, dados_20a79$ano == 2017)
+res_feijao58 = subset(fit_feijao5$residuals, dados_20a79$ano == 2018)
+#res_feijao59 = subset(fit_feijao5$residuals, dados_20a79$ano == 2019)
+
+res_feijao5 = data.frame(res_feijao50, res_feijao51, res_feijao52, res_feijao53, res_feijao54, res_feijao55, res_feijao56, res_feijao57, res_feijao58)
+cor(res_feijao5)
+cov(res_feijao5)
+
+uni_feijao51 = geeglm(feijao5_prop ~ sexo, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,sexo,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao52 = geeglm(feijao5_prop ~ idade_cat, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,idade_cat,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao53 = geeglm(feijao5_prop ~ anos_de_estudo, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao54 = geeglm(feijao5_prop ~ plano_saude_nao_prop, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao55 = geeglm(feijao5_prop ~ Nota, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,sexo,Nota,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao56 = geeglm(feijao5_prop ~ IVS, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao57 = geeglm(feijao5_prop ~ IDHM, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_feijao58 = geeglm(feijao5_prop ~ Gini, id = cidade, 
+                      data = dados_20a79 %>% select(feijao5_prop,sexo,idade_cat,anos_de_estudo,
+                                                    plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$feijao5_prop,dados_20a79$IVS)
+cor.test(dados_20a79$feijao5_prop,dados_20a79$Gini)
+cor.test(dados_20a79$feijao5_prop,dados_20a79$IDHM)
+
+Tabela21.1 = rbind(TabelaGEENormal(uni_feijao51),TabelaGEENormal(uni_feijao52),
+                   TabelaGEENormal(uni_feijao53),TabelaGEENormal(uni_feijao54),
+                   TabelaGEENormal(uni_feijao55),TabelaGEENormal(uni_feijao56)
+                   #TabelaGEENormal(uni_feijao57)#TabelaGEENormal(uni_feijao58)
+)
+#write.xlsx(Tabela21.1 %>% as.data.frame(), 'Tabela 21.1.xlsx', rowNames = F)
+
+#Sem interação: plano_saude_nao_prop e anos_de_estudo
+multi_semint_feijao51 = geeglm(feijao5_prop ~ sexo + idade_cat + #anos_de_estudo + 
+                                 #plano_saude_nao_prop + 
+                                 Nota + 
+                                 IVS, 
+                               id = cidade, data = dados_20a79 %>% 
+                                 select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                               family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_feijao51)
+#write.xlsx(TabelaGEENormal(multi_semint_feijao51) %>% as.data.frame(), 'Tabela 21.2.xlsx', rowNames = F)
+
+#Com interação
+multi_feijao51 = geeglm(feijao5_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao51)
+
+#sexo*idade_cat
+multi_feijao52 = geeglm(feijao5_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao52)
+
+#sexo*anos_de_estudo
+multi_feijao53 = geeglm(feijao5_prop ~ sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*IVS +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao53)
+
+#anos_de_estudo*IVS
+multi_feijao54 = geeglm(feijao5_prop ~ sexo*plano_saude_nao_prop + sexo*Nota + sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao54)
+
+#sexo*Nota
+multi_feijao55 = geeglm(feijao5_prop ~ sexo*plano_saude_nao_prop + sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao55)
+
+#sexo*plano_saude_nao_prop
+multi_feijao56 = geeglm(feijao5_prop ~ sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao56)
+
+#idade_cat*plano_saude_nao_prop
+multi_feijao57 = geeglm(feijao5_prop ~ sexo*IVS +
+                          idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*IVS +
+                          anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota +
+                          plano_saude_nao_prop*Nota + plano_saude_nao_prop*IVS +
+                          Nota*IVS, 
+                        id = cidade, data = dados_20a79 %>% 
+                          select(feijao5_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,cidade) %>% na.omit(), 
+                        family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_feijao57)
+write.xlsx(TabelaGEENormal(multi_feijao57) %>% as.data.frame(), 'Tabela 21.3.xlsx', rowNames = F)
+
+hist(multi_feijao57$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_feijao57$residuals),max(multi_feijao57$residuals), length.out = 100),
+      dnorm(seq(min(multi_feijao57$residuals),max(multi_feijao57$residuals), length.out = 100),
+            mean=mean(multi_feijao57$residuals),sd=sd(multi_feijao57$residuals)))
+
+qqnorm(multi_feijao57$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_feijao57$residuals)
+
+ks.test(multi_feijao57$residuals, "pnorm", mean(multi_feijao57$residuals, na.rm = T), sd(multi_feijao57$residuals, na.rm = T))
+
+####======
+#### hart
+####======
+hist(dados_20a79$hart_prop)
+ks.test(dados_20a79$hart_prop, "pnorm", mean(dados_20a79$hart_prop, na.rm = T), sd(dados_20a79$hart_prop, na.rm = T))
+
+fit_hart = lm(hart_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_hart0 = subset(fit_hart$residuals, dados_20a79$ano == 2010)
+res_hart1 = subset(fit_hart$residuals, dados_20a79$ano == 2011)
+res_hart2 = subset(fit_hart$residuals, dados_20a79$ano == 2012)
+res_hart3 = subset(fit_hart$residuals, dados_20a79$ano == 2013)
+res_hart4 = subset(fit_hart$residuals, dados_20a79$ano == 2014)
+res_hart5 = subset(fit_hart$residuals, dados_20a79$ano == 2015)
+res_hart6 = subset(fit_hart$residuals, dados_20a79$ano == 2016)
+res_hart7 = subset(fit_hart$residuals, dados_20a79$ano == 2017)
+res_hart8 = subset(fit_hart$residuals, dados_20a79$ano == 2018)
+res_hart9 = subset(fit_hart$residuals, dados_20a79$ano == 2019)
+
+res_hart = data.frame(res_hart0, res_hart1, res_hart2, res_hart3, res_hart4, res_hart5, res_hart6, res_hart7, res_hart8, res_hart9)
+cor(res_hart)
+cov(res_hart)
+
+uni_hart1 = geeglm(hart_prop ~ sexo, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,sexo,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart2 = geeglm(hart_prop ~ idade_cat, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,idade_cat,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart3 = geeglm(hart_prop ~ anos_de_estudo, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart4 = geeglm(hart_prop ~ plano_saude_nao_prop, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart5 = geeglm(hart_prop ~ Nota, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,sexo,Nota,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart6 = geeglm(hart_prop ~ IVS, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart7 = geeglm(hart_prop ~ IDHM, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_hart8 = geeglm(hart_prop ~ Gini, id = cidade, 
+                   data = dados_20a79 %>% select(hart_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$hart_prop,dados_20a79$IVS)
+cor.test(dados_20a79$hart_prop,dados_20a79$Gini)
+cor.test(dados_20a79$hart_prop,dados_20a79$IDHM)
+
+Tabela22.1 = rbind(TabelaGEENormal(uni_hart1),TabelaGEENormal(uni_hart2),
+                   TabelaGEENormal(uni_hart3),TabelaGEENormal(uni_hart4),
+                   TabelaGEENormal(uni_hart5),#TabelaGEENormal(uni_hart6),TabelaGEENormal(uni_hart7)
+                   TabelaGEENormal(uni_hart8)
+)
+#write.xlsx(Tabela22.1 %>% as.data.frame(), 'Tabela 22.1.xlsx', rowNames = F)
+
+#Sem interação: Nota
+multi_semint_hart1 = geeglm(hart_prop ~ sexo + idade_cat + anos_de_estudo + 
+                              plano_saude_nao_prop + Nota + 
+                              Gini, 
+                            id = cidade, data = dados_20a79 %>% 
+                              select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                            family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_hart1)
+#write.xlsx(TabelaGEENormal(multi_semint_hart1) %>% as.data.frame(), 'Tabela 22.2.xlsx', rowNames = F)
+
+#Com interação
+multi_hart1 = geeglm(hart_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart1)
+
+#sexo*Nota
+multi_hart2 = geeglm(hart_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart2)
+
+#idade_cat*Gini
+multi_hart3 = geeglm(hart_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart3)
+
+#sexo*idade_cat
+multi_hart4 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart4)
+
+#plano_saude_nao_prop*Nota
+multi_hart5 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart5)
+
+#idade_cat*anos_de_estudo
+multi_hart6 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart6)
+
+#anos_de_estudo*Nota
+multi_hart7 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart7)
+
+#idade_cat*Nota
+multi_hart8 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart8)
+
+#plano_saude_nao_prop*Gini
+multi_hart9 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart9)
+
+#Nota*Gini
+multi_hart10 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini + Nota +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart10)
+
+#Nota
+multi_hart11 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart11)
+
+#anos_de_estudo*Gini
+multi_hart12 = geeglm(hart_prop ~ sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(hart_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_hart12)
+#write.xlsx(TabelaGEENormal(multi_hart12) %>% as.data.frame(), 'Tabela 22.3.xlsx', rowNames = F)
+
+hist(multi_hart12$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_hart12$residuals),max(multi_hart12$residuals), length.out = 100),
+      dnorm(seq(min(multi_hart12$residuals),max(multi_hart12$residuals), length.out = 100),
+            mean=mean(multi_hart12$residuals),sd=sd(multi_hart12$residuals)))
+
+qqnorm(multi_hart12$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_hart12$residuals)
+
+ks.test(multi_hart12$residuals, "pnorm", mean(multi_hart9$residuals, na.rm = T), sd(multi_hart9$residuals, na.rm = T))
+
+####======
+#### diab
+####======
+hist(dados_20a79$diab_prop)
+ks.test(dados_20a79$diab_prop, "pnorm", mean(dados_20a79$diab_prop, na.rm = T), sd(dados_20a79$diab_prop, na.rm = T))
+
+fit_diab = lm(diab_prop ~ factor(sexo)*factor(ano), data=dados_20a79)
+res_diab0 = subset(fit_diab$residuals, dados_20a79$ano == 2010)
+res_diab1 = subset(fit_diab$residuals, dados_20a79$ano == 2011)
+res_diab2 = subset(fit_diab$residuals, dados_20a79$ano == 2012)
+res_diab3 = subset(fit_diab$residuals, dados_20a79$ano == 2013)
+res_diab4 = subset(fit_diab$residuals, dados_20a79$ano == 2014)
+res_diab5 = subset(fit_diab$residuals, dados_20a79$ano == 2015)
+res_diab6 = subset(fit_diab$residuals, dados_20a79$ano == 2016)
+res_diab7 = subset(fit_diab$residuals, dados_20a79$ano == 2017)
+res_diab8 = subset(fit_diab$residuals, dados_20a79$ano == 2018)
+res_diab9 = subset(fit_diab$residuals, dados_20a79$ano == 2019)
+
+res_diab = data.frame(res_diab0, res_diab1, res_diab2, res_diab3, res_diab4, res_diab5, res_diab6, res_diab7, res_diab8, res_diab9)
+cor(res_diab)
+cov(res_diab)
+
+uni_diab1 = geeglm(diab_prop ~ sexo, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,sexo,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab2 = geeglm(diab_prop ~ idade_cat, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,idade_cat,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab3 = geeglm(diab_prop ~ anos_de_estudo, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab4 = geeglm(diab_prop ~ plano_saude_nao_prop, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab5 = geeglm(diab_prop ~ Nota, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,sexo,Nota,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab6 = geeglm(diab_prop ~ IVS, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab7 = geeglm(diab_prop ~ IDHM, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+uni_diab8 = geeglm(diab_prop ~ Gini, id = cidade, 
+                   data = dados_20a79 %>% select(diab_prop,sexo,idade_cat,anos_de_estudo,
+                                                 plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+cor.test(dados_20a79$diab_prop,dados_20a79$IVS)
+cor.test(dados_20a79$diab_prop,dados_20a79$Gini)
+cor.test(dados_20a79$diab_prop,dados_20a79$IDHM)
+
+Tabela23.1 = rbind(TabelaGEENormal(uni_diab1),TabelaGEENormal(uni_diab2),
+                   TabelaGEENormal(uni_diab3),TabelaGEENormal(uni_diab4),
+                   TabelaGEENormal(uni_diab5),#TabelaGEENormal(uni_diab6),TabelaGEENormal(uni_diab7)
+                   TabelaGEENormal(uni_diab8)
+)
+#write.xlsx(Tabela23.1 %>% as.data.frame(), 'Tabela 23.1.xlsx', rowNames = F)
+
+#Sem interação: Nota
+multi_semint_diab1 = geeglm(diab_prop ~ #sexo + 
+                              idade_cat + #anos_de_estudo + 
+                              #plano_saude_nao_prop + #Nota + 
+                              Gini, 
+                            id = cidade, data = dados_20a79 %>% 
+                              select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                            family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_semint_diab1)
+#write.xlsx(TabelaGEENormal(multi_semint_diab1) %>% as.data.frame(), 'Tabela 23.2.xlsx', rowNames = F)
+
+#Com interação
+multi_diab1 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab1)
+
+#anos_de_estudo*Nota
+multi_diab2 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab2)
+
+#plano_saude_nao_prop*Nota
+multi_diab3 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab3)
+
+#sexo*Nota
+multi_diab4 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab4)
+
+#idade_cat*anos_de_estudo
+multi_diab5 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini +
+                       Nota*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab5)
+
+#Nota*Gini
+multi_diab6 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Gini +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab6)
+
+#sexo*Gini
+multi_diab7 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab7)
+
+#idade_cat*Gini
+multi_diab8 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                       idade_cat*plano_saude_nao_prop + idade_cat*Nota +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab8)
+
+#idade_cat*Nota
+multi_diab9 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                       idade_cat*plano_saude_nao_prop +
+                       anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                       plano_saude_nao_prop*Gini, 
+                     id = cidade, data = dados_20a79 %>% 
+                       select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab9)
+
+#plano_saude_nao_prop*Gini
+multi_diab10 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab10)
+
+#sexo*plano_saude_nao_prop
+multi_diab11 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + Nota +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab11)
+
+#sexo*plano_saude_nao_prop
+multi_diab12 = geeglm(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
+                        idade_cat*plano_saude_nao_prop +
+                        anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini,
+                      id = cidade, data = dados_20a79 %>% 
+                        select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(multi_diab12)
+#write.xlsx(TabelaGEENormal(multi_diab12) %>% as.data.frame(), 'Tabela 23.3.xlsx', rowNames = F)
+
+hist(multi_diab12$residuals,prob=T,xlab="Resíduos",ylab="Densidade",main="")
+lines(seq(min(multi_diab12$residuals),max(multi_diab12$residuals), length.out = 100),
+      dnorm(seq(min(multi_diab12$residuals),max(multi_diab12$residuals), length.out = 100),
+            mean=mean(multi_diab12$residuals),sd=sd(multi_diab12$residuals)))
+
+qqnorm(multi_diab12$residuals,xlab="Quantis da Normal Padrão",ylab="Quantis dos Resíduos",main="")
+qqline(multi_diab12$residuals)
+
+ks.test(multi_diab12$residuals, "pnorm", mean(multi_diab9$residuals, na.rm = T), sd(multi_diab9$residuals, na.rm = T))
+
+####===========
+#### TaxaICSAP
+####===========
+hist(dados_20a79$TaxaICSAP)
+ks.test(dados_20a79$TaxaICSAP, "pnorm", mean(dados_20a79$TaxaICSAP, na.rm = T), sd(dados_20a79$TaxaICSAP, na.rm = T))
+
+uni_TaxaICSAP1 = geeglm(TaxaICSAP ~ sexo, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,sexo,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP2 = geeglm(TaxaICSAP ~ idade_cat, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,idade_cat,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP3 = geeglm(TaxaICSAP ~ anos_de_estudo, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,anos_de_estudo,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP4 = geeglm(TaxaICSAP ~ plano_saude_nao_prop, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP5 = geeglm(TaxaICSAP ~ Nota, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,sexo,Nota,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP6 = geeglm(TaxaICSAP ~ IVS, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,
+                                                      plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP7 = geeglm(TaxaICSAP ~ IDHM, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,
+                                                      plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+uni_TaxaICSAP8 = geeglm(TaxaICSAP ~ Gini, id = cidade, 
+                        data = dados_20a79 %>% select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,
+                                                      plano_saude_nao_prop,Nota,IVS,IDHM,Gini,cidade) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+
+cor.test(dados_20a79$TaxaICSAP,dados_20a79$IVS)
+cor.test(dados_20a79$TaxaICSAP,dados_20a79$Gini)
+cor.test(dados_20a79$TaxaICSAP,dados_20a79$IDHM)
+
+Tabela24.1 = rbind(TabelaGEEGama(uni_TaxaICSAP1),TabelaGEEGama(uni_TaxaICSAP2),
+                   TabelaGEEGama(uni_TaxaICSAP3),TabelaGEEGama(uni_TaxaICSAP4),
+                   TabelaGEEGama(uni_TaxaICSAP5),#TabelaGEEGama(uni_TaxaICSAP6),
+                   TabelaGEEGama(uni_TaxaICSAP7)
+                   #TabelaGEEGama(uni_TaxaICSAP8)
+)
+#write.xlsx(Tabela24.1 %>% as.data.frame(), 'Tabela 24.1.xlsx', rowNames = F)
+
+#Sem interação: Nota
+multi_semint_TaxaICSAP1 = geeglm(TaxaICSAP ~ sexo + 
+                                   idade_cat + anos_de_estudo + 
+                                   plano_saude_nao_prop + #Nota + 
+                                   Gini, 
+                                 id = cidade, data = dados_20a79 %>% 
+                                   select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                                 family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_semint_TaxaICSAP1)
+#write.xlsx(TabelaGEEGama(multi_semint_TaxaICSAP1) %>% as.data.frame(), 'Tabela 24.2.xlsx', rowNames = F)
+
+#Com interação
+multi_TaxaICSAP1 = geeglm(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                            idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                            anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                            plano_saude_nao_prop*Nota + plano_saude_nao_prop*Gini +
+                            Nota*Gini, 
+                          id = cidade, data = dados_20a79 %>% 
+                            select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                          family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_TaxaICSAP1)
+
+#plano_saude_nao_prop*Nota
+multi_TaxaICSAP2 = geeglm(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                            idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Nota + idade_cat*Gini +
+                            anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                            plano_saude_nao_prop*Gini +
+                            Nota*Gini, 
+                          id = cidade, data = dados_20a79 %>% 
+                            select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                          family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_TaxaICSAP2)
+
+#idade_cat*plano_saude_nao_prop
+multi_TaxaICSAP3 = geeglm(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                            idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*Gini +
+                            anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
+                            plano_saude_nao_prop*Gini +
+                            Nota*Gini, 
+                          id = cidade, data = dados_20a79 %>% 
+                            select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                          family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_TaxaICSAP3)
+
+#anos_de_estudo*Nota
+multi_TaxaICSAP4 = geeglm(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*Gini +
+                            idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*Gini +
+                            anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                            plano_saude_nao_prop*Gini +
+                            Nota*Gini, 
+                          id = cidade, data = dados_20a79 %>% 
+                            select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                          family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_TaxaICSAP4)
+
+#sexo*plano_saude_nao_prop
+multi_TaxaICSAP5 = geeglm(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*Nota + sexo*Gini +
+                            idade_cat*anos_de_estudo + idade_cat*Nota + idade_cat*Gini +
+                            anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Gini +
+                            plano_saude_nao_prop*Gini +
+                            Nota*Gini, 
+                          id = cidade, data = dados_20a79 %>% 
+                            select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade) %>% na.omit(), 
+                          family = Gamma(link = "log"), corstr = "exchangeable")
+summary(multi_TaxaICSAP5)
+#write.xlsx(TabelaGEEGama(multi_TaxaICSAP5) %>% as.data.frame(), 'Tabela 24.3.xlsx', rowNames = F)
+
+hnp::hnp(multi_TaxaICSAP5, resid.type='pearson')
+
+
+
+
+####===============================================
+#### Imputação dos dados ausentes na nota e feijão
+####===============================================
+if(!require(mice)){ install.packages("mice"); require(mice)}
+
+#Nota:
+#Maceió, Macapá, Teresina e São Luís em 2010
+dados_Nota_NA = dados_20a79 %>% select(Nota,Estado,Ciclo,
+                                       Q1_media,Q2_media,Q3_media,Q4_media,Q5_media,Q6_media,Q7_media,Q8_media,Q9_prop,Q10_media,
+                                       Q11_media,Q12_media,Q13_media,Q14_prop,Q15_prop,Q16_prop,Q17_prop,Q18_prop,Q19_media,Q20_prop)
+dados_Nota_semNA = complete(mice(dados_Nota_NA, method = "cart", m = 5))
+#write.xlsx(completed_data %>% as.data.frame(),'Dados sem NA cart.xlsx')
+
+#Feijão: ano de 2018
+dados_feijao_NA = dados_20a79 %>% select(IMC_media,IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
+                                         flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,TaxaICSAP,
+                                         sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop)
+dados_feijao_semNA = complete(mice(dados_feijao_NA, method = "pmm", m = 5))
+#write.xlsx(completed_data %>% as.data.frame(),'Dados sem NA pmm.xlsx')
+
+#Consolidando os dados imputados com os demais dados
+completed_data %>% head
+
+dados_20a79 %>% select(IMC_media,IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
+                       flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,TaxaICSAP,
+                       sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,IDHM,Gini,ano,Estado,
+                       POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,SomaICSAP,
+                       Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,
+                       porte_mun,Ciclo,Q1_media,Q2_media,Q3_media,Q4_media,Q5_media,Q6_media,Q7_media,Q8_media,Q9_prop,Q10_media,
+                       Q11_media,Q12_media,Q13_media,Q14_prop,Q15_prop,Q16_prop,Q17_prop,Q18_prop,Q19_media,Q20_prop)
+
+dados_aa = dados_20a79 %>% filter(Estado == 'Minas Gerais' | Estado == 'Rio de Janeiro' | Estado == 'São Paulo') %>% 
+  select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,IDHM,Gini,Estado) %>% na.omit()
+
+imc_ex = geeglm(IMC_i_cat_excesso_prop ~ sexo + idade_cat + anos_de_estudo + plano_saude_nao_prop + Nota + IVS + IDHM + Gini, 
+                id = Estado, data = dados_aa, 
+                family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+imc_ar1 = geeglm(IMC_i_cat_excesso_prop ~ sexo + idade_cat + anos_de_estudo + plano_saude_nao_prop + Nota + IVS + IDHM + Gini, 
+                 id = Estado, data = dados_20a79 %>% 
+                   select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,IDHM,Gini,Estado) %>% na.omit(), 
+                 family = gaussian(link = 'identity'), corstr = "ar1")
+
+dados_20a79 %>% 
+  select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,IDHM,Gini,Estado) %>% na.omit() %>% dim
+
+dados_20a79 %>% 
+  select(IMC_i_cat_excesso_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IVS,IDHM,Gini,Estado) %>% dim
+
+TabelaModelo(modelo_Ind_CobVac_cat)
+
+imc_gee = geeglm(IMC_i_cat_excesso_prop ~ sexo, id=Estado, data=dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,Estado), 
+                 corstr = "exchangeable", family = Gamma(link = "log"))
+imc_gee = geeglm(IMC_i_cat_excesso_prop ~ sexo, id=Estado, data=dados_20a79 %>% select(IMC_i_cat_excesso_prop,sexo,Estado), 
+                 corstr = "exchangeable", family = Gamma(link = "log"))
 
 
 #######################################
@@ -1099,76 +2623,6 @@ dados$ano = as.factor(dados$ano)
 modelo_prais_winsten = plm(hortareg_prop ~ sexo + Região + Nota + idade_media + civil_uniaoest_casado_prop + 
                              anos_de_estudo + plano_saude_nao_prop, data = dados, index = c("ano"))
 summary(modelo_prais_winsten)
-
-
-
-####============================
-#### Comparações por ano e sexo
-####============================
-
-
-KruskalAnoSexo = function(variavel) {
-  resultados = lapply(list(dados2010, dados2011, dados2012, dados2013, dados2014, dados2015, 
-                           dados2016, dados2017, dados2018, dados2019), function(df) {
-                             KruskalTeste(df[[variavel]], df$Região)$tabela
-                           })
-  return(resultados)
-}
-
-KruskalAnoSexoCM = function(variavel) {
-  resultados = lapply(list(dados2010, dados2011, dados2012, dados2013, dados2014, dados2015, 
-                           dados2016, dados2017, dados2018, dados2019), function(df) {
-                             KruskalTeste(df[[variavel]], df$Região)$C.Multiplas
-                           })
-  return(resultados)
-}
-
-MannWhitneyAnoSexo = function(variavel) {
-  resultados = lapply(list(dados2010, dados2011, dados2012, dados2013, dados2014, dados2015, 
-                           dados2016, dados2017, dados2018, dados2019), function(df) {
-                             MannWhitney(df[[variavel]], df$sexo)
-                             })
-  return(resultados)
-}
-
-TesteTAnoSexo = function(variavel) {
-  resultados = lapply(list(dados2010, dados2011, dados2012, dados2013, dados2014, dados2015, 
-                           dados2016, dados2017, dados2018, dados2019), function(df) {
-                             TesteT(df[[variavel]], df$sexo)
-                           })
-  return(resultados)
-}
-
-Tabela4 = do.call(rbind,KruskalAnoSexo("IMC_cat_baixo_prop"))
-Tabela5 = do.call(rbind,KruskalAnoSexo("IMC_cat_excesso_prop"))
-Tabela6 = do.call(rbind,KruskalAnoSexo("hortareg_prop"))
-Tabela6.1 = do.call(rbind,KruskalAnoSexoCM("hortareg_prop"))
-
-Tabela7 = do.call(rbind,KruskalAnoSexo("frutareg_prop"))
-Tabela8 = do.call(rbind,KruskalAnoSexo("flvreg_prop"))
-Tabela9 = do.call(rbind,KruskalAnoSexo("refritl5_prop"))
-Tabela10 = do.call(rbind,KruskalAnoSexo("hart_prop"))
-Tabela11 = do.call(rbind,KruskalAnoSexo("diab_prop"))
-Tabela12 = do.call(rbind,KruskalAnoSexo("ANEMIA"))
-Tabela13 = do.call(rbind,KruskalAnoSexo("DEFICIENCIAS_NUTRICIONAIS"))
-Tabela14 = do.call(rbind,KruskalAnoSexo("DIABETES_MELITUS"))
-Tabela15 = do.call(rbind,KruskalAnoSexo("HIPERTENSAO"))
-Tabela16 = do.call(rbind,KruskalAnoSexo("TaxaICSAP"))
-
-write.xlsx(Tabela4 %>% as.data.frame(), 'Tabela 4.xlsx', rowNames = T)
-write.xlsx(Tabela5 %>% as.data.frame(), 'Tabela 5.xlsx', rowNames = T)
-write.xlsx(Tabela6 %>% as.data.frame(), 'Tabela 6.xlsx', rowNames = T)
-write.xlsx(Tabela6.1 %>% as.data.frame(), 'Tabela 6.1.xlsx', rowNames = T)
-write.xlsx(Tabela7 %>% as.data.frame(), 'Tabela 7.xlsx', rowNames = T)
-write.xlsx(Tabela8 %>% as.data.frame(), 'Tabela 8.xlsx', rowNames = T)
-write.xlsx(Tabela9 %>% as.data.frame(), 'Tabela 9.xlsx', rowNames = T)
-write.xlsx(Tabela10 %>% as.data.frame(), 'Tabela 10.xlsx', rowNames = T)
-write.xlsx(Tabela11 %>% as.data.frame(), 'Tabela 11.xlsx', rowNames = T)
-write.xlsx(Tabela12 %>% as.data.frame(), 'Tabela 12.xlsx', rowNames = T)
-write.xlsx(Tabela13 %>% as.data.frame(), 'Tabela 13.xlsx', rowNames = T)
-write.xlsx(Tabela14 %>% as.data.frame(), 'Tabela 14.xlsx', rowNames = T)
-write.xlsx(Tabela15 %>% as.data.frame(), 'Tabela 15.xlsx', rowNames = T)
-write.xlsx(Tabela16 %>% as.data.frame(), 'Tabela 16.xlsx', rowNames = T)
 
 
 ####=========
