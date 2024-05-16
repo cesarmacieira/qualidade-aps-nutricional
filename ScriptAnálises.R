@@ -5,8 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
-#setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+tryCatch({setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")},
+         error = function(e) { setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional") })
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -403,8 +403,8 @@ diag_gee_gama <- function(modelo, dados){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-dados = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
-#dados = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)
+dados = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)},
+                           error = function(e) {read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx", sheet = 1)})
 
 #dados1 = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 06-05-2024.xlsx", sheet = 1)
 
@@ -3047,6 +3047,8 @@ dados_Nota_NA = dados_20a79 %>% select(Nota,cidade,cidade_nome,Estado,ano,sexo,i
 
 dados_Nota_NA_para_imp = dados_Nota_NA %>% select(-c(cidade,Estado,sexo,idade_cat))
 dados_Nota_semNA = mice::complete(mice::mice(dados_Nota_NA_para_imp, method = "rf", m = 5))
+
+dados_Nota_semNA %>% filter(cidade_nome == 'Maceió')
 
 dados_Nota_semNA$cidade = dados_20a79$cidade
 dados_Nota_semNA$Estado = dados_20a79$Estado
