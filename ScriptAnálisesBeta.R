@@ -15,7 +15,8 @@ if(!require(openxlsx)){ install.packages("openxlsx"); require(openxlsx)}#Ler e e
 if(!require(purrr)){ install.packages("purrr"); require(purrr)}#Programação funcional
 if(!require(tidyverse)){ install.packages("tidyverse"); require(tidyverse)}#Manipulação de dados
 if(!require(geepack)){ install.packages("geepack"); require(geepack)}
-#if(!require(mice)){ install.packages("mice"); require(mice)}
+if(!require(lme4)){ install.packages("lme4"); require(lme4)}
+if(!require(glmmTMB)){ install.packages("glmmTMB"); require(glmmTMB)}
 
 ####=========
 #### Funções
@@ -1408,9 +1409,9 @@ multi_diab4 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*pl
                       family = beta_family(link = "logit"))
 summary(multi_diab4)
 
-#sexo*plano_saude_nao_prop
-multi_diab5 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*Nota +
-                        idade_cat*anos_de_estudo + idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+#idade_cat*anos_de_estudo
+multi_diab5 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota +
+                        idade_cat*plano_saude_nao_prop + idade_cat*Gini +
                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
                         plano_saude_nao_prop*Nota + 
                         Nota*Gini + 
@@ -1419,9 +1420,9 @@ multi_diab5 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*No
                       family = beta_family(link = "logit"))
 summary(multi_diab5)
 
-#idade_cat*anos_de_estudo
-multi_diab6 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*Nota +
-                        idade_cat*plano_saude_nao_prop + idade_cat*Gini +
+#idade_cat*Gini
+multi_diab6 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota +
+                        idade_cat*plano_saude_nao_prop +
                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
                         plano_saude_nao_prop*Nota + 
                         Nota*Gini + 
@@ -1430,7 +1431,7 @@ multi_diab6 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*No
                       family = beta_family(link = "logit"))
 summary(multi_diab6)
 
-#idade_cat*Gini
+#sexo*plano_saude_nao_prop
 multi_diab7 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*Nota +
                         idade_cat*plano_saude_nao_prop +
                         anos_de_estudo*plano_saude_nao_prop + anos_de_estudo*Nota + anos_de_estudo*Gini +
@@ -1482,16 +1483,26 @@ multi_diab11 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
                        family = beta_family(link = "logit"))
 summary(multi_diab11)
 
-#anos_de_estudo*Nota
+#sexo*Nota
 multi_diab12 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
                          idade_cat*plano_saude_nao_prop +
-                         anos_de_estudo*plano_saude_nao_prop +
+                         anos_de_estudo*plano_saude_nao_prop + Nota +
                          Gini +
                          (1 | cidade_nome), data = dados_20a79 %>% 
                          select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade_nome) %>% na.omit(), 
                        family = beta_family(link = "logit"))
 summary(multi_diab12)
-#write.xlsx(TabelaGLMMBeta(multi_diab11) %>% as.data.frame(), 'Tabela 37.3.xlsx', rowNames = F)
+
+#Nota
+multi_diab13 = glmmTMB(diab_prop ~ sexo*idade_cat + sexo*anos_de_estudo +
+                         idade_cat*plano_saude_nao_prop +
+                         anos_de_estudo*plano_saude_nao_prop + 
+                         Gini +
+                         (1 | cidade_nome), data = dados_20a79 %>% 
+                         select(diab_prop,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,Gini,cidade_nome) %>% na.omit(), 
+                       family = beta_family(link = "logit"))
+summary(multi_diab13)
+#write.xlsx(TabelaGLMMBeta(multi_diab13) %>% as.data.frame(), 'Tabela 37.3.xlsx', rowNames = F)
 
 ####===========
 #### TaxaICSAP
@@ -1550,7 +1561,7 @@ multi_semint_TaxaICSAP1 = glmer(TaxaICSAP ~ sexo +
                                   select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
                                 family = Gamma(link = "log"))
 summary(multi_semint_TaxaICSAP1)
-write.xlsx(TabelaGEEGama(multi_semint_TaxaICSAP1) %>% as.data.frame(), 'Tabela 38.2.xlsx', rowNames = F)
+#write.xlsx(TabelaGEEGama(multi_semint_TaxaICSAP1) %>% as.data.frame(), 'Tabela 38.2.xlsx', rowNames = F)
 
 #Com interação
 multi_TaxaICSAP1 = glmer(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo + sexo*plano_saude_nao_prop + sexo*Nota + sexo*IDHM +
@@ -1671,74 +1682,9 @@ multi_TaxaICSAP11 = glmer(TaxaICSAP ~ sexo*idade_cat + sexo*anos_de_estudo +
                             select(TaxaICSAP,sexo,idade_cat,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
                           family = Gamma(link = "log"), nAGQ=0)
 summary(multi_TaxaICSAP11)
-#write.xlsx(TabelaGEEGama(multi_TaxaICSAP5) %>% as.data.frame(), 'Tabela 38.3.xlsx', rowNames = F)
+#write.xlsx(TabelaGEEGama(multi_TaxaICSAP11) %>% as.data.frame(), 'Tabela 38.3.xlsx', rowNames = F)
 
-#hnp::hnp(multi_TaxaICSAP5, resid.type='pearson')
-
-####===============================================
-#### Imputação dos dados ausentes na nota e feijão
-####===============================================
-#Nota:
-#Maceió, Macapá, Teresina e São Luís em 2010
-# dados_Nota_NA = dados_20a79 %>% select(Nota,cidade,cidade_nome,Estado,ano,sexo,idade_cat,IVS,IDHM,Gini,Cobertura.ESF,porte_mun,
-#                                        Ciclo,Taxa.Cob.Planos.Priv,Leitos.SUS,TaxaICSAP,
-#                                        Q1_media,Q2_media,Q3_media,Q4_media,Q5_media,Q6_media,Q7_media,Q8_media,Q9_prop,Q10_media,
-#                                        Q11_media,Q12_media,Q13_media,Q14_prop,Q15_prop,Q16_prop,Q17_prop,Q18_prop,Q19_media,Q20_prop)
-# dados_Nota_NA_para_imp = dados_Nota_NA %>% select(-c(cidade,Estado,sexo,idade_cat,IVS,IDHM,Gini,Cobertura.ESF,porte_mun,
-#                                                      Ciclo,Taxa.Cob.Planos.Priv,Leitos.SUS))
-# dados_Nota_semNA = mice::complete(mice::mice(dados_Nota_NA_para_imp, method = "rf", m = 5))
-# 
-# dados_Nota_semNA$cidade = dados_20a79$cidade
-# dados_Nota_semNA$Estado = dados_20a79$Estado
-# dados_Nota_semNA$sexo = dados_20a79$sexo
-# dados_Nota_semNA$idade_cat = dados_20a79$idade_cat
-# dados_Nota_semNA$IVS = dados_20a79$IVS
-# dados_Nota_semNA$IDHM = dados_20a79$IDHM
-# dados_Nota_semNA$Gini = dados_20a79$Gini
-# dados_Nota_semNA$Cobertura.ESF = dados_20a79$Cobertura.ESF
-# dados_Nota_semNA$porte_mun = dados_20a79$porte_mun
-# dados_Nota_semNA$Ciclo = dados_20a79$Ciclo
-# dados_Nota_semNA$Taxa.Cob.Planos.Priv = dados_20a79$Taxa.Cob.Planos.Priv
-# dados_Nota_semNA$Leitos.SUS = dados_20a79$Leitos.SUS
-# dados_Nota_semNA$TaxaICSAP = dados_20a79$TaxaICSAP
-# 
-# valor_mais_repetido_alagoas = dados_Nota_semNA %>% filter(cidade_nome == 'Maceió') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   count(Nota) %>% slice(which.max(n)) %>% pull(Nota)
-# valor_mais_repetido_amapa = dados_Nota_semNA %>% filter(cidade_nome == 'Macapá') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   count(Nota) %>% slice(which.max(n)) %>% pull(Nota)
-# valor_mais_repetido_maranhao = dados_Nota_semNA %>% filter(cidade_nome == 'São Luís') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>%  
-#   count(Nota) %>% slice(which.max(n)) %>% pull(Nota)
-# valor_mais_repetido_piaui = dados_Nota_semNA %>% filter(cidade_nome == 'Teresina') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>%  
-#   count(Nota) %>% slice(which.max(n)) %>% pull(Nota)
-# 
-# dados_alagoas_semNA = dados_Nota_semNA %>% filter(cidade_nome == 'Maceió') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   mutate(Nota = if_else(Nota != valor_mais_repetido_alagoas, valor_mais_repetido_alagoas, Nota))
-# dados_amapa_semNA = dados_Nota_semNA %>% filter(cidade_nome == 'Macapá') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   mutate(Nota = if_else(Nota != valor_mais_repetido_amapa, valor_mais_repetido_amapa, Nota))
-# dados_maranhao_semNA = dados_Nota_semNA %>% filter(cidade_nome == 'São Luís') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   mutate(Nota = if_else(Nota != valor_mais_repetido_maranhao, valor_mais_repetido_maranhao, Nota))
-# dados_piaui_semNA = dados_Nota_semNA %>% filter(cidade_nome == 'Teresina') %>% filter(ano == 2010 | ano == 2011 | ano == 2012) %>% 
-#   mutate(Nota = if_else(Nota != valor_mais_repetido_piaui, valor_mais_repetido_piaui, Nota))
-# 
-# dados_Nota_NA_imp = rbind(dados_alagoas_semNA,dados_amapa_semNA,dados_maranhao_semNA,dados_piaui_semNA,
-#                           dados_Nota_semNA %>% filter(cidade_nome == 'Maceió') %>% filter(ano != 2010 & ano != 2011 & ano != 2012),
-#                           dados_Nota_semNA %>% filter(cidade_nome == 'Macapá') %>% filter(ano != 2010 & ano != 2011 & ano != 2012),
-#                           dados_Nota_semNA %>% filter(cidade_nome == 'São Luís') %>% filter(ano != 2010 & ano != 2011 & ano != 2012),
-#                           dados_Nota_semNA %>% filter(cidade_nome == 'Teresina') %>% filter(ano != 2010 & ano != 2011 & ano != 2012),
-#                           dados_Nota_NA %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'Macapá' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina'))
-# 
-# #Feijão: ano de 2018
-# dados_feijao_NA = dados_20a79 %>% select(cidade,ano,
-#                                          IMC_media,IMC_cat_baixo_prop,IMC_cat_excesso_prop,IMC_i_media,IMC_i_cat_baixo_prop,IMC_i_cat_excesso_prop,
-#                                          frutareg_prop,flvreg_prop,cruadia_cat_prop,cozidadia_cat_prop,hortadia_media,sucodia_media,sofrutadia_media,
-#                                          frutadia_media,flvdia_media,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
-#                                          sexo,idade_cat,anos_de_estudo,civil_uniaoest_casado_prop,plano_saude_nao_prop)
-# dados_feijao_semNA = mice::complete(mice::mice(dados_feijao_NA, method = "rf", m = 5))
-# 
-# dados_completos = left_join(dados_Nota_NA_imp, dados_feijao_semNA, by=c('ano'='ano','cidade'='cidade','sexo'='sexo','idade_cat'='idade_cat'))
-
-#dados_completos %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'Macapá' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina')
-#write.xlsx(dados_completos %>% as.data.frame(), 'Dados com imputações.xlsx')
+#hnp::hnp(multi_TaxaICSAP11, resid.type='pearson')
 
 ####========
 #### Extras
