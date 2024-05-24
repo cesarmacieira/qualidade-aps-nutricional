@@ -5,8 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
+tryCatch({setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")},
+         error = function(e) { setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional") })
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -62,25 +62,23 @@ basic.stats = function(x, more = F) {
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-# vigitel = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 09-04-2024.xlsx", sheet = 1)
-# notas_pmaq = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1)
-# icsap = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/DadosICSAP_Capitais.xlsx",
-#                   sheet=1)
-# Pop_Leitos_Planos_ESF = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/População Leitos Planos Privados Cob ESF 2010-2019.xlsx",
-#                                   sheet=1)
-# Gini_IVS_IDHM = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Gini, IVS e IDHM 2010.xlsx",
-#                           sheet=1)
-# pmaq = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados estrutura e equipes PMAQ capitais.xlsx", sheet = 1)
+vigitel = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 23-05-2024.xlsx", sheet = 1)},
+                   error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 23-05-2024.xlsx", sheet = 1) })
 
-vigitel = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel para análises 09-04-2024.xlsx", sheet = 1)
-notas_pmaq = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1)
-icsap = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/DadosICSAP_Capitais.xlsx",
-                  sheet=1)
-Pop_Leitos_Planos_ESF = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/População Leitos Planos Privados Cob ESF 2010-2019.xlsx",
-                                  sheet=1)
-Gini_IVS_IDHM = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Gini, IVS e IDHM 2010.xlsx",
-                          sheet=1)
-pmaq = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados estrutura e equipes PMAQ capitais.xlsx", sheet = 1)
+notas_pmaq = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1)},
+                      error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Notas PMAQ 3 ciclos 2010 a 2019.xlsx", sheet = 1) })
+
+icsap = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/DadosICSAP_Capitais.xlsx", sheet = 1)},
+                 error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/DadosICSAP_Capitais.xlsx", sheet = 1) })
+
+Pop_Leitos_Planos_ESF = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/População Leitos Planos Privados Cob ESF 2010-2019.xlsx", sheet = 1)},
+                                 error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/População Leitos Planos Privados Cob ESF 2010-2019.xlsx", sheet = 1) })
+
+Gini_IVS_IDHM = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Gini, IVS e IDHM 2010.xlsx", sheet = 1)},
+                         error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Gini, IVS e IDHM 2010.xlsx", sheet = 1) })
+
+pmaq = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados estrutura e equipes PMAQ capitais.xlsx", sheet = 1)},
+                error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados estrutura e equipes PMAQ capitais.xlsx", sheet = 1) })
 
 ####==================
 #### Junção dos dados

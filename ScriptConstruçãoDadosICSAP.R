@@ -5,8 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd('C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional')
+tryCatch({setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")},
+         error = function(e) { setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional") })
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -162,15 +162,10 @@ TesteDeNormalidade = function(x){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-# icsap = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/ICSAP-2010-2019.xlsx",
-#                        sheet=1)
-# Gini.IVS = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Gini e IVS 2010.xlsx",
-#                      sheet=1, detectDates=TRUE)
-
-icsap = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/ICSAP-2010-2019.xlsx",
-                  sheet=1)
-Gini.IVS = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Gini e IVS 2010.xlsx",
-                     sheet=1, detectDates=TRUE)
+icsap = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/ICSAP-2010-2019.xlsx", sheet = 1)},
+                 error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/ICSAP-2010-2019.xlsx", sheet = 1) })
+Gini.IVS = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Gini e IVS 2010.xlsx", sheet = 1, detectDates=TRUE)},
+                    error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Gini e IVS 2010.xlsx", sheet = 1, detectDates=TRUE) })
 
 ####=====================
 #### Tratamento de dados

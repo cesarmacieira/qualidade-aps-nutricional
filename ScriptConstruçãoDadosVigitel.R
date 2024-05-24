@@ -5,8 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional")
+tryCatch({setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")},
+         error = function(e) { setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional") })
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -63,8 +63,8 @@ basic.stats = function(x, more = F) {
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-# vigitel_originais = haven::read_dta("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta")
-# vigitel_originais = haven::read_dta("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta")
+#vigitel_originais = tryCatch({haven::read_dta("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta")},
+#                             error = function(e) { haven::read_dta("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/vigitel2006_2022_indicadores_2023.04.24 RClaro.dta") })
 
 # vigitel_originais %>% filter(ano == 2014) %>% select(q76) %>% map(DescritivaCat)
 # vigitel_originais %>% filter(ano == 2018) %>% select(q15) %>% map(DescritivaCat)
@@ -77,8 +77,8 @@ basic.stats = function(x, more = F) {
 #          r144a,r144b,q75,q76,q76a)
 # write.xlsx(vigitel %>% as.data.frame(), 'Dados Catarina Vigitel 21-03-2024.xlsx', rowNames=F)
 
-#vigitel = read.xlsx("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina/Dados Catarina Vigitel 05-03-2024.xlsx", sheet = 1)
-vigitel = read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)
+vigitel = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1)},
+                   error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel 21-03-2024.xlsx", sheet = 1) })
 
 ####=====================
 #### Tratamento de dados
@@ -184,6 +184,9 @@ vigitel$cidade_2 = case_when(vigitel$cidade == '1'	~ 'Aracaju',
 vigitel$q7_2 = case_when(vigitel$q7 == '1' ~ 'Masculino',
                          vigitel$q7 == '2' ~ 'Feminino')
 
+vigitel$sexo = case_when(vigitel$q7_2 == 'Masculino' ~ 1,
+                         vigitel$q7_2 == 'Feminino' ~ 0)
+
 vigitel$q8a_2 = case_when(vigitel$q8a == '1' ~ 'Curso primário',
                           vigitel$q8a == '2' ~ 'Admissão',
                           vigitel$q8a == '3' ~ 'Curso ginasial ou ginásio',
@@ -200,6 +203,9 @@ vigitel$idade_cat = case_when(vigitel$q6 <= 19 ~ '19 anos ou menos',
                               vigitel$q6 >= 20 & vigitel$q6 <= 59 ~ '20 a 59 anos',
                               vigitel$q6 >= 60 & vigitel$q6 <= 79 ~ '60 a 79 anos',
                               vigitel$q6 >= 80 ~ '80 anos ou mais')
+
+vigitel$idade_cat_60a79 = case_when(vigitel$q6 >= 20 & vigitel$q6 <= 59 ~ 0,
+                                    vigitel$q6 >= 60 & vigitel$q6 <= 79 ~ 1)
 
 vigitel$civil_uniaoest_casado = case_when(vigitel$civil == '1' | vigitel$civil == '4' | vigitel$civil == '5' ~ 0,
                                           vigitel$civil == '2' | vigitel$civil == '3' ~ 1)
@@ -235,69 +241,72 @@ vigitel$cozidadia_cat = case_when(vigitel$cozidadia == 1 | vigitel$cozidadia == 
                                   vigitel$cozidadia == 3 ~ 1)
 
 dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos' | idade_cat == '80 anos ou mais') %>% 
-  select(ordem,pesorake,ano,cidade,cidade_2,q6,idade_cat,q7,q7_2,civil,civil_uniaoest_casado,
+  select(ordem,pesorake,ano,cidade,cidade_2,q6,idade_cat_60a79,idade_cat,sexo,q7,q7_2,civil,civil_uniaoest_casado,
          q8a,q8a_2,q8b,q8_anos,q88,plano_saude_nao,q9,q11,IMC,IMC_cat,IMC_cat_baixo,IMC_cat_excesso,
          q9_i,q11_i,IMC_i,IMC_i_cat,IMC_i_cat_baixo,IMC_i_cat_excesso,
          q16,hortareg,q25,q27,frutareg,flvreg,q18,cruadia,cruadia_cat,q20,cozidadia,cozidadia_cat,hortadia,q26,sucodia,
          q28,sofrutadia,frutadia,flvdia,flvreco,q29,refritl5,q15,feijao5,q75,hart,q76,diab)
 
-write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 09-04-2024.xlsx', rowNames = F)
+write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 23-05-2024.xlsx', rowNames = F)
 
 ####==================================
 #### Agrupando por ano, cidade e sexo
 ####==================================
-dados_idade = dados %>% filter(!is.na(q6)) %>% group_by(ano, cidade, cidade_2, q7_2, idade_cat) %>% 
-  summarize(idade_media = weighted.mean(q6, pesorake)) %>% as.data.frame()
-dados_civil_uniaoest_casado_prop = dados %>% filter(!is.na(civil_uniaoest_casado)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_sexo_prop = dados %>% filter(!is.na(sexo)) %>% group_by(ano, cidade_2) %>% 
+  summarize(sexo_M_prop = sum(sexo * pesorake) / sum(pesorake)) %>% as.data.frame()
+dados_idade_60a79_prop = dados %>% filter(!is.na(idade_cat_60a79)) %>% group_by(ano, cidade_2) %>% 
+  summarize(idade_60a79_prop = weighted.mean(idade_cat_60a79, pesorake)) %>% as.data.frame()
+dados_civil_uniaoest_casado_prop = dados %>% filter(!is.na(civil_uniaoest_casado)) %>% group_by(ano, cidade_2) %>% 
   summarize(civil_uniaoest_casado_prop = sum(civil_uniaoest_casado * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_anos_de_estudo = dados %>% filter(!is.na(q8_anos)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_anos_de_estudo = dados %>% filter(!is.na(q8_anos)) %>% group_by(ano, cidade_2) %>% 
   summarize(anos_de_estudo = weighted.mean(q8_anos, pesorake)) %>% as.data.frame()
-dados_plano_saude_nao_prop = dados %>% filter(!is.na(plano_saude_nao)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_plano_saude_nao_prop = dados %>% filter(!is.na(plano_saude_nao)) %>% group_by(ano, cidade_2) %>% 
   summarize(plano_saude_nao_prop = sum(plano_saude_nao * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_IMC_media = dados %>% filter(!is.na(IMC)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_media = dados %>% filter(!is.na(IMC)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_media = weighted.mean(IMC, pesorake)) %>% as.data.frame()
-dados_IMC_cat_baixo_prop = dados %>% filter(!is.na(IMC_cat_baixo)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_cat_baixo_prop = dados %>% filter(!is.na(IMC_cat_baixo)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_cat_baixo_prop = sum(IMC_cat_baixo * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_IMC_cat_excesso_prop = dados %>% filter(!is.na(IMC_cat_excesso)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_cat_excesso_prop = dados %>% filter(!is.na(IMC_cat_excesso)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_cat_excesso_prop = sum(IMC_cat_excesso * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_IMC_i_media = dados %>% filter(!is.na(IMC_i)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_i_media = dados %>% filter(!is.na(IMC_i)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_i_media = weighted.mean(IMC_i, pesorake)) %>% as.data.frame()
-dados_IMC_i_cat_baixo_prop = dados %>% filter(!is.na(IMC_i_cat_baixo)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_i_cat_baixo_prop = dados %>% filter(!is.na(IMC_i_cat_baixo)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_i_cat_baixo_prop = sum(IMC_i_cat_baixo * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_IMC_i_cat_excesso_prop = dados %>% filter(!is.na(IMC_i_cat_excesso)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_IMC_i_cat_excesso_prop = dados %>% filter(!is.na(IMC_i_cat_excesso)) %>% group_by(ano, cidade_2) %>% 
   summarize(IMC_i_cat_excesso_prop = sum(IMC_i_cat_excesso * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_hortareg_prop = dados %>% filter(!is.na(hortareg)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_hortareg_prop = dados %>% filter(!is.na(hortareg)) %>% group_by(ano, cidade_2) %>% 
   summarize(hortareg_prop = sum(hortareg * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_frutareg_prop = dados %>% filter(!is.na(frutareg)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_frutareg_prop = dados %>% filter(!is.na(frutareg)) %>% group_by(ano, cidade_2) %>% 
   summarize(frutareg_prop = sum(frutareg * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_flvreg_prop = dados %>% filter(!is.na(flvreg)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_flvreg_prop = dados %>% filter(!is.na(flvreg)) %>% group_by(ano, cidade_2) %>% 
   summarize(flvreg_prop = sum(flvreg * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_cruadia_cat_prop = dados %>% filter(!is.na(cruadia_cat)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_cruadia_cat_prop = dados %>% filter(!is.na(cruadia_cat)) %>% group_by(ano, cidade_2) %>% 
   summarize(cruadia_cat_prop = sum(cruadia_cat * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_cozidadia_cat_prop = dados %>% filter(!is.na(cozidadia_cat)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_cozidadia_cat_prop = dados %>% filter(!is.na(cozidadia_cat)) %>% group_by(ano, cidade_2) %>% 
   summarize(cozidadia_cat_prop = sum(cozidadia_cat * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_hortadia_media = dados %>% filter(!is.na(hortadia)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_hortadia_media = dados %>% filter(!is.na(hortadia)) %>% group_by(ano, cidade_2) %>% 
   summarize(hortadia_media = weighted.mean(hortadia, pesorake)) %>% as.data.frame()
-dados_sucodia_media = dados %>% filter(!is.na(sucodia)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_sucodia_media = dados %>% filter(!is.na(sucodia)) %>% group_by(ano, cidade_2) %>% 
   summarize(sucodia_media = weighted.mean(sucodia, pesorake)) %>% as.data.frame()
-dados_sofrutadia_media = dados %>% filter(!is.na(sofrutadia)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_sofrutadia_media = dados %>% filter(!is.na(sofrutadia)) %>% group_by(ano, cidade_2) %>% 
   summarize(sofrutadia_media = weighted.mean(sofrutadia, pesorake)) %>% as.data.frame()
-dados_frutadia_media = dados %>% filter(!is.na(frutadia)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_frutadia_media = dados %>% filter(!is.na(frutadia)) %>% group_by(ano, cidade_2) %>% 
   summarize(frutadia_media = weighted.mean(frutadia, pesorake)) %>% as.data.frame()
-dados_flvdia_media = dados %>% filter(!is.na(flvdia)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_flvdia_media = dados %>% filter(!is.na(flvdia)) %>% group_by(ano, cidade_2) %>% 
   summarize(flvdia_media = weighted.mean(flvdia, pesorake)) %>% as.data.frame()
-dados_flvreco_prop = dados %>% filter(!is.na(flvreco)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_flvreco_prop = dados %>% filter(!is.na(flvreco)) %>% group_by(ano, cidade_2) %>% 
   summarize(flvreco_prop = sum(flvreco * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_refritl5_prop = dados %>% filter(!is.na(refritl5)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_refritl5_prop = dados %>% filter(!is.na(refritl5)) %>% group_by(ano, cidade_2) %>% 
   summarize(refritl5_prop = sum(refritl5 * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_feijao5_prop = dados %>% filter(!is.na(feijao5)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_feijao5_prop = dados %>% filter(!is.na(feijao5)) %>% group_by(ano, cidade_2) %>% 
   summarize(feijao5_prop = sum(feijao5 * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_hart_prop = dados %>% filter(!is.na(hart)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_hart_prop = dados %>% filter(!is.na(hart)) %>% group_by(ano, cidade_2) %>% 
   summarize(hart_prop = sum(hart * pesorake) / sum(pesorake)) %>% as.data.frame()
-dados_diab_prop = dados %>% filter(!is.na(diab)) %>% group_by(ano, cidade_2, q7_2, idade_cat) %>% 
+dados_diab_prop = dados %>% filter(!is.na(diab)) %>% group_by(ano, cidade_2) %>% 
   summarize(diab_prop = sum(diab * pesorake) / sum(pesorake)) %>% as.data.frame()
 
-dados_agg1 = left_join(dados_idade, dados_civil_uniaoest_casado_prop)
+dados_agg0 = left_join(dados_sexo_prop, dados_idade_60a79_prop)
+dados_agg1 = left_join(dados_agg0, dados_civil_uniaoest_casado_prop)
 dados_agg2 = left_join(dados_agg1, dados_anos_de_estudo)
 dados_agg3 = left_join(dados_agg2, dados_plano_saude_nao_prop)
 dados_agg4 = left_join(dados_agg3, dados_IMC_media)
@@ -322,6 +331,6 @@ dados_agg22 = left_join(dados_agg21, dados_feijao5_prop)
 dados_agg23 = left_join(dados_agg22, dados_hart_prop)
 dados_agg24 = left_join(dados_agg23, dados_diab_prop)
 
-dados_agg25 = dados_agg24 %>% rename(sexo = q7_2, cidade_nome = cidade_2)
+dados_agg25 = dados_agg24 %>% rename(cidade_nome = cidade_2)
 
-write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 09-04-2024.xlsx', rowNames = F)
+write.xlsx(dados_agg25 %>% as.data.frame(), 'Dados Catarina Vigitel para análises 23-05-2024.xlsx', rowNames = F)

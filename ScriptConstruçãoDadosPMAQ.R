@@ -5,8 +5,8 @@
 #### Preparando o R para análise
 ####=============================
 rm(list=ls(all=T))#Limpar ambiente/histórico
-#setwd("C:/Users/User_/Desktop/Trabalhos/NESCON/Trabalho - Catarina")#Diretório
-setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")
+tryCatch({setwd("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional")},
+         error = function(e) { setwd("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional") })
 
 ####=================================
 #### Instalando e carregando pacotes
@@ -162,13 +162,19 @@ TesteDeNormalidade = function(x){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-est_ciclo1 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/UBS (Estrutura) Ciclo 1.xlsx", sheet = 1)
-est_ciclo2 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/UBS (Estrutura) Ciclo 2.xlsx", sheet = 1)
-est_ciclo3 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/UBS (Estrutura) Ciclo 3.xlsx", sheet = 1)
+est_ciclo1 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 1.xlsx", sheet = 1)},
+                      error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 1.xlsx", sheet = 1) })
+est_ciclo2 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 2.xlsx", sheet = 1)},
+                      error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 2.xlsx", sheet = 1) })
+est_ciclo3 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 3.xlsx", sheet = 1)},
+                      error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/UBS (Estrutura) Ciclo 3.xlsx", sheet = 1) })
 
-eq_ciclo1 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/EquipeCiclo1.xlsx", sheet = 1)
-eq_ciclo2 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/EquipeCiclo2.xlsx", sheet = 1)
-eq_ciclo3 = read.xlsx("C:/Users/cesar_macieira/Downloads/PMAQ/EquipeCiclo3.xlsx", sheet = 1)
+eq_ciclo1 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/EquipeCiclo1.xlsx", sheet = 1)},
+                     error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/EquipeCiclo1.xlsx", sheet = 1) })
+eq_ciclo2 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/EquipeCiclo2.xlsx", sheet = 1)},
+                     error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/EquipeCiclo2.xlsx", sheet = 1) })
+eq_ciclo3 = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/PMAQ/EquipeCiclo3.xlsx", sheet = 1)},
+                     error = function(e) { read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/PMAQ/EquipeCiclo3.xlsx", sheet = 1) })
 
 ####===========
 #### Estrutura
