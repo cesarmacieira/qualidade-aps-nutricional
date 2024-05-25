@@ -83,20 +83,7 @@ pmaq = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qual
 ####==================
 #### Junção dos dados
 ####==================
-icsap_agg = icsap %>%
-  group_by(MUNIC_RES, Nome.do.Município, Nome.da.UF, Região, ANO_CMPT, SEXO, FX_ETARIA) %>%
-  summarise(across(where(is.numeric) & !matches("TaxaICSAP"), sum),
-            TaxaICSAP = mean(as.numeric(TaxaICSAP))) %>%
-  as.data.frame()
-icsap_agg$SEXO = case_when(icsap_agg$SEXO == 'F' ~ 'Feminino',
-                           icsap_agg$SEXO == 'M' ~ 'Masculino')
-
-
-vigitel_icsap = full_join(vigitel, icsap_agg, by = c('cidade_nome'='Nome.do.Município','sexo'='SEXO',
-                                                     'ano'='ANO_CMPT','idade_cat'='FX_ETARIA'))
-
-
-vigitel_icsap = vigitel_icsap %>% group_by(cidade_nome) %>% fill(MUNIC_RES, Nome.da.UF, Região) %>% as.data.frame()
+vigitel_icsap = full_join(vigitel, icsap, by = c('cidade_nome'='Nome.do.Município','ano'='ANO_CMPT')) %>% as.data.frame()
 
 vigitel_icsap_notas_pmaq = left_join(vigitel_icsap, notas_pmaq, by = c('MUNIC_RES'='IBGE','ano'='Ano'))
 
@@ -130,4 +117,4 @@ vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte_est_eq =
             pmaq, by = c('Ciclo'='Ciclo','MUNIC_RES'='IBGE'))
 
 write.xlsx(vigitel_icsap_notas_pmaq_pop_leitos_planos_ESF_Gini_IVS_IDHM_Porte_est_eq %>% as.data.frame(), 
-           'Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 09-04-2024.xlsx', rowNames = F)
+           'Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 23-05-2024.xlsx', rowNames = F)

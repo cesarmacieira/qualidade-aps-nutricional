@@ -252,7 +252,7 @@ write.xlsx(dados %>% as.data.frame(), 'Dados Catarina 23-05-2024.xlsx', rowNames
 ####==================================
 #### Agrupando por ano, cidade e sexo
 ####==================================
-dados_sexo_prop = dados %>% filter(!is.na(sexo)) %>% group_by(ano, cidade_2) %>% 
+dados_sexo_prop = dados %>% filter(!is.na(sexo)) %>% group_by(ano, cidade, cidade_2) %>% 
   summarize(sexo_M_prop = sum(sexo * pesorake) / sum(pesorake)) %>% as.data.frame()
 dados_idade_60a79_prop = dados %>% filter(!is.na(idade_cat_60a79)) %>% group_by(ano, cidade_2) %>% 
   summarize(idade_60a79_prop = weighted.mean(idade_cat_60a79, pesorake)) %>% as.data.frame()
