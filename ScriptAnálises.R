@@ -376,25 +376,6 @@ variaveis = c("sexo_M_prop","idade_60a79_prop","civil_uniaoest_casado_prop","ano
 #HomogeneidadeVariancias(dados$plano_saude_nao_prop, dados$ano)
 #HomogeneidadeVariancias(dados$IMC_i_media, dados$ano)
 
-####==================
-#### Dados por região
-####==================
-dados_inc = dados %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina' | cidade_nome == 'Macapá')
-dados_comp = dados %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina' & cidade_nome != 'Macapá')
-
-dados_CO = dados %>% filter(Região == 'Centro-Oeste')
-
-dados_ND = dados %>% filter(Região == 'Nordeste')
-dados_ND_inc = dados %>% filter(Região == 'Nordeste') %>% filter(cidade_nome == 'Maceió' | cidade_nome == 'São Luís' | cidade_nome == 'Teresina')
-dados_ND_comp = dados %>% filter(Região == 'Nordeste') %>% filter(cidade_nome != 'Maceió' & cidade_nome != 'São Luís' & cidade_nome != 'Teresina')
-
-dados_NT = dados %>% filter(Região == 'Norte')
-dados_NT_inc = dados %>% filter(Região == 'Norte') %>% filter(cidade_nome == 'Macapá')
-dados_NT_comp = dados %>% filter(Região == 'Norte') %>% filter(cidade_nome != 'Macapá')
-
-dados_Sud = dados %>% filter(Região == 'Sudeste')
-dados_Sul = dados %>% filter(Região == 'Sul')
-
 ####=========
 #### Modelos
 ####=========
@@ -404,13 +385,18 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 ####======
 #### Beta
 ####======
+dados = dados %>% 
+  mutate(IMC_i_cat_excesso_prop_inv = 1-IMC_i_cat_excesso_prop,
+         refritl5_prop_inv = 1-refritl5_prop) %>% 
+  mutate(Indicador = rowMeans(select(., IMC_i_cat_excesso_prop_inv, flvreg_prop, flvreco_prop, 
+                                     refritl5_prop_inv, feijao5_prop, hart_prop, diab_prop), na.rm = TRUE))
+
 hist(dados$Indicador)
 ks.test(dados$Indicador, "pnorm", mean(dados$Indicador, na.rm = T), sd(dados$Indicador, na.rm = T))
 
-dados = dados %>% 
-  mutate(Indicador = rowMeans(select(., IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, 
-                                     refritl5_prop, feijao5_prop, hart_prop, diab_prop), na.rm = TRUE))
-
+uni_Ind0 = glmmTMB(Indicador ~ (1 | cidade_nome) + factor(ano), 
+                   data = dados %>% select(Indicador,ano,cidade_nome) %>% na.omit(), 
+                   family = beta_family(link = "logit"))
 uni_Ind1 = glmmTMB(Indicador ~ (1 | cidade_nome) + sexo_M_prop, 
                    data = dados %>% select(Indicador,sexo_M_prop,cidade_nome) %>% na.omit(), 
                    family = beta_family(link = "logit"))
@@ -440,7 +426,7 @@ cor.test(dados$Indicador,dados$IVS)
 cor.test(dados$Indicador,dados$IDHM)
 cor.test(dados$Indicador,dados$Gini)
 
-Tabela0.1 = rbind(TabelaGLMMBeta(uni_Ind1),TabelaGLMMBeta(uni_Ind2),
+Tabela0.1 = rbind(TabelaGLMMBeta(uni_Ind0),TabelaGLMMBeta(uni_Ind1),TabelaGLMMBeta(uni_Ind2),
                   TabelaGLMMBeta(uni_Ind3),TabelaGLMMBeta(uni_Ind4),
                   TabelaGLMMBeta(uni_Ind5),#TabelaGLMMBeta(uni_Ind6),
                   TabelaGLMMBeta(uni_Ind7)#,TabelaGLMMBeta(uni_Ind8)
@@ -448,13 +434,13 @@ Tabela0.1 = rbind(TabelaGLMMBeta(uni_Ind1),TabelaGLMMBeta(uni_Ind2),
 write.xlsx(Tabela0.1 %>% as.data.frame(), 'Tabela 0.1.xlsx', rowNames = F)
 
 #Sem interação
-multi_semint_Ind1 = glmmTMB(Indicador ~ (1 | cidade_nome) + #sexo_M_prop + idade_60a79_prop + 
-                                 anos_de_estudo + 
-                                 plano_saude_nao_prop + #Nota + 
+multi_semint_Ind1 = glmmTMB(Indicador ~ (1 | cidade_nome) + factor(ano) + sexo_M_prop + idade_60a79_prop + 
+                              anos_de_estudo + 
+                              plano_saude_nao_prop + Nota + 
                               IDHM, 
-                               data = dados %>% 
-                                 select(Indicador,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
-                               family = beta_family(link = "logit"))
+                            data = dados %>% 
+                              select(Indicador,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
+                            family = beta_family(link = "logit"))
 summary(multi_semint_Ind1)
 write.xlsx(TabelaGLMMBeta(multi_semint_Ind1) %>% as.data.frame(), 'Tabela 0.2.xlsx', rowNames = F)
 
@@ -536,12 +522,12 @@ Tabela0.4 = rbind(TabelaGEENormal(uni_n_Ind1),TabelaGEENormal(uni_n_Ind2),
 #write.xlsx(Tabela0.4 %>% as.data.frame(), 'Tabela 0.4.xlsx', rowNames = F)
 
 #Sem interação
-multi_n_semint_Ind1 = geeglm(Indicador ~ sexo_M_prop + #idade_60a79_prop + 
+multi_n_semint_Ind1 = geeglm(Indicador ~ sexo_M_prop + idade_60a79_prop + factor(ano) +
                                anos_de_estudo + 
-                               plano_saude_nao_prop + Nota + 
+                               plano_saude_nao_prop + #Nota + 
                                IDHM, 
                              id = cidade, data = dados %>% 
-                               select(Indicador,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+                               select(Indicador,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
                              family = gaussian(link = 'identity'), corstr = "exchangeable")
 summary(multi_n_semint_Ind1)
 #write.xlsx(TabelaGEENormal(multi_n_semint_Ind1) %>% as.data.frame(), 'Tabela 0.5.xlsx', rowNames = F)
@@ -681,7 +667,7 @@ multig_Ind2 = geeglm(Indicador ~ sexo_M_prop*idade_60a79_prop + sexo_M_prop*plan
                        select(Indicador,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
                      family = Gamma(link = "log"), corstr = "exchangeable")
 summary(multig_Ind2)
-write.xlsx(TabelaGEEGama(multig_Ind2) %>% as.data.frame(), 'Tabela 0.9.xlsx', rowNames = F)
+#write.xlsx(TabelaGEEGama(multig_Ind2) %>% as.data.frame(), 'Tabela 0.9.xlsx', rowNames = F)
 
 ####========================
 #### IMC_i_cat_excesso_prop
@@ -745,7 +731,7 @@ Tabela1.1 = rbind(TabelaGLMMBeta(uni_imc1),TabelaGLMMBeta(uni_imc2),
 multi_semint_imc1 = glmmTMB(IMC_i_cat_excesso_prop ~ (1 | cidade_nome) + sexo_M_prop + idade_60a79_prop + anos_de_estudo + 
                               #plano_saude_nao_prop + Nota + 
                               IDHM, data = dados %>% 
-                              select(IMC_i_cat_excesso_prop,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
+                              select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
                             family = beta_family(link = "logit"))
 summary(multi_semint_imc1)
 #write.xlsx(TabelaGLMMBeta(multi_semint_imc1) %>% as.data.frame(), 'Tabela 1.2.xlsx', rowNames = F)

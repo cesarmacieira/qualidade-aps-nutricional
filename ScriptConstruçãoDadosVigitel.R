@@ -240,7 +240,7 @@ vigitel$cruadia_cat = case_when(vigitel$cruadia == 1 | vigitel$cruadia == 2 ~ 0,
 vigitel$cozidadia_cat = case_when(vigitel$cozidadia == 1 | vigitel$cozidadia == 2 ~ 0,
                                   vigitel$cozidadia == 3 ~ 1)
 
-dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos' | idade_cat == '80 anos ou mais') %>% 
+dados = vigitel %>% filter(idade_cat == '20 a 59 anos' | idade_cat == '60 a 79 anos') %>% #| idade_cat == '80 anos ou mais') %>% 
   select(ordem,pesorake,ano,cidade,cidade_2,q6,idade_cat_60a79,idade_cat,sexo,q7,q7_2,civil,civil_uniaoest_casado,
          q8a,q8a_2,q8b,q8_anos,q88,plano_saude_nao,q9,q11,IMC,IMC_cat,IMC_cat_baixo,IMC_cat_excesso,
          q9_i,q11_i,IMC_i,IMC_i_cat,IMC_i_cat_baixo,IMC_i_cat_excesso,
