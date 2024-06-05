@@ -788,6 +788,12 @@ Tabela10 = rbind(cbind(Hmisc::rcorr(dados_corr2016, type = 'spearman')$r, Hmisc:
 ####=========
 #Respostas: IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, refritl5_prop, feijao5_prop, hart_prop, diab_prop e TaxaICSAP
 #Explicativas: sexo, faixa etária, anos de estudo, plano de saúde, Nota (IVS, IDH, Gini)
+# multi_imc1 = glmmTMB(Indicador ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop*Nota + 
+#                        Nota*IDHM + factor(ano) +
+#                        (1 | cidade_nome), data = dados %>% 
+#                        select(ano,Indicador,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
+#                      family = beta_family(link = "logit"))
+# summary(multi_imc1)
 
 #com idh e sem ano
 imc1 = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo*Nota + plano_saude_nao_prop + 
