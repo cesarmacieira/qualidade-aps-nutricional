@@ -794,191 +794,283 @@ Tabela10 = rbind(cbind(Hmisc::rcorr(dados_corr2016, type = 'spearman')$r, Hmisc:
 #                        select(ano,Indicador,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade_nome) %>% na.omit(), 
 #                      family = beta_family(link = "logit"))
 # summary(multi_imc1)
+#IMC_i_cat_excesso_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop*Nota + Nota*IDHM + factor(ano)
+geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop*Nota + factor(ano), 
+       id = cidade, data = dados %>% 
+         select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+       family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e sem ano
-imc1 = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                Nota*IDHM, 
-              id = cidade, data = dados %>% 
-                select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-              family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(imc1)
-#sem idh e com ano
-imc2 = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + 
-                factor(ano), 
-              id = cidade, data = dados %>% 
-                select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-              family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(imc2)
-#com idh e com ano
-imc3 = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                Nota*IDHM + factor(ano), 
-              id = cidade, data = dados %>% 
-                select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-              family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(imc3)
+####=====
+#### IMC
+####=====
+imc_bi1 = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(IMC_i_cat_excesso_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e sem ano
-flvreg1 = geeglm(flvreg_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                   Nota*IDHM, 
-                 id = cidade, data = dados %>% 
-                   select(flvreg_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+imc_bi2 = geeglm(IMC_i_cat_excesso_prop ~ idade_60a79_prop, id = cidade, 
+                 data = dados %>% select(IMC_i_cat_excesso_prop,idade_60a79_prop,cidade) %>% na.omit(), 
                  family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreg1)
-#sem idh e com ano
-flvreg2 = geeglm(flvreg_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop + 
-                   factor(ano), 
-                 id = cidade, data = dados %>% 
-                   select(flvreg_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                 family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreg2)
-#com idh e com ano
-flvreg3 = geeglm(flvreg_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + 
-                   Nota*IDHM + factor(ano), 
-                 id = cidade, data = dados %>% 
-                   select(flvreg_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                 family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreg3)
 
-#com idh e sem ano
-flvreco1 = geeglm(flvreco_prop ~ sexo_M_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                    Nota*IDHM, 
-                  id = cidade, data = dados %>% 
-                    select(flvreco_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+imc_bi3 = geeglm(IMC_i_cat_excesso_prop ~ anos_de_estudo, id = cidade, 
+                 data = dados %>% select(IMC_i_cat_excesso_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                 family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+imc_bi4 = geeglm(IMC_i_cat_excesso_prop ~ plano_saude_nao_prop, id = cidade, 
+                 data = dados %>% select(IMC_i_cat_excesso_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                 family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+imc_bi5 = geeglm(IMC_i_cat_excesso_prop ~ Nota, id = cidade, 
+                 data = dados %>% select(IMC_i_cat_excesso_prop,Nota,cidade) %>% na.omit(), 
+                 family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+imc_bi6 = geeglm(IMC_i_cat_excesso_prop ~ factor(ano), id = cidade, 
+                 data = dados %>% select(IMC_i_cat_excesso_prop,ano,cidade) %>% na.omit(), 
+                 family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+imc_multi = geeglm(IMC_i_cat_excesso_prop ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + 
+                     factor(ano), 
+                   id = cidade, data = dados %>% 
+                     select(IMC_i_cat_excesso_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(imc_multi)
+
+Tabela11.1 = rbind(TabelaGEENormal(imc_bi1),TabelaGEENormal(imc_bi2),TabelaGEENormal(imc_bi3),TabelaGEENormal(imc_bi4),
+                   TabelaGEENormal(imc_bi5),TabelaGEENormal(imc_bi6))
+Tabela11.2 = TabelaGEENormal(imc_multi)
+#write.xlsx(Tabela11.1 %>% as.data.frame(), 'Tabela 11.1.xlsx', rowNames = F)
+#write.xlsx(Tabela11.2 %>% as.data.frame(), 'Tabela 11.2.xlsx', rowNames = F)
+
+####=============
+#### flvreg_prop
+####=============
+flvreg_bi1 = geeglm(flvreg_prop ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(flvreg_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_bi2 = geeglm(flvreg_prop ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(flvreg_prop,idade_60a79_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_bi3 = geeglm(flvreg_prop ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(flvreg_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_bi4 = geeglm(flvreg_prop ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(flvreg_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_bi5 = geeglm(flvreg_prop ~ Nota, id = cidade, 
+                    data = dados %>% select(flvreg_prop,Nota,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_bi6 = geeglm(flvreg_prop ~ factor(ano), id = cidade, 
+                    data = dados %>% select(flvreg_prop,ano,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreg_multi = geeglm(flvreg_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop + factor(ano), 
+                      id = cidade, data = dados %>% 
+                        select(flvreg_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(flvreg_multi)
+
+Tabela12.1 = rbind(TabelaGEENormal(flvreg_bi1),TabelaGEENormal(flvreg_bi2),TabelaGEENormal(flvreg_bi3),TabelaGEENormal(flvreg_bi4),
+                   TabelaGEENormal(flvreg_bi5),TabelaGEENormal(flvreg_bi6))
+Tabela12.2 = TabelaGEENormal(flvreg_multi)
+#write.xlsx(Tabela12.1 %>% as.data.frame(), 'Tabela 12.1.xlsx', rowNames = F)
+#write.xlsx(Tabela12.2 %>% as.data.frame(), 'Tabela 12.2.xlsx', rowNames = F)
+
+####==============
+#### flvreco_prop
+####==============
+flvreco_bi1 = geeglm(flvreco_prop ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(flvreco_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_bi2 = geeglm(flvreco_prop ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(flvreco_prop,idade_60a79_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_bi3 = geeglm(flvreco_prop ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(flvreco_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_bi4 = geeglm(flvreco_prop ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(flvreco_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_bi5 = geeglm(flvreco_prop ~ Nota, id = cidade, 
+                    data = dados %>% select(flvreco_prop,Nota,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_bi6 = geeglm(flvreco_prop ~ factor(ano), id = cidade, 
+                    data = dados %>% select(flvreco_prop,ano,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+flvreco_multi = geeglm(flvreco_prop ~ sexo_M_prop*Nota + anos_de_estudo + plano_saude_nao_prop + factor(ano), 
+                       id = cidade, data = dados %>% 
+                         select(flvreco_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(),
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(flvreco_multi)
+
+Tabela13.1 = rbind(TabelaGEENormal(flvreco_bi1),TabelaGEENormal(flvreco_bi2),TabelaGEENormal(flvreco_bi3),TabelaGEENormal(flvreco_bi4),
+                   TabelaGEENormal(flvreco_bi5),TabelaGEENormal(flvreco_bi6))
+Tabela13.2 = TabelaGEENormal(flvreco_multi)
+#write.xlsx(Tabela13.1 %>% as.data.frame(), 'Tabela 13.1.xlsx', rowNames = F)
+#write.xlsx(Tabela13.2 %>% as.data.frame(), 'Tabela 13.2.xlsx', rowNames = F)
+
+####===============
+#### refritl5_prop
+####===============
+refri_bi1 = geeglm(refritl5_prop ~ sexo_M_prop, id = cidade, 
+                   data = dados %>% select(refritl5_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_bi2 = geeglm(refritl5_prop ~ idade_60a79_prop, id = cidade, 
+                   data = dados %>% select(refritl5_prop,idade_60a79_prop,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_bi3 = geeglm(refritl5_prop ~ anos_de_estudo, id = cidade, 
+                   data = dados %>% select(refritl5_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_bi4 = geeglm(refritl5_prop ~ plano_saude_nao_prop, id = cidade, 
+                   data = dados %>% select(refritl5_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_bi5 = geeglm(refritl5_prop ~ Nota, id = cidade, 
+                   data = dados %>% select(refritl5_prop,Nota,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_bi6 = geeglm(refritl5_prop ~ factor(ano), id = cidade, 
+                   data = dados %>% select(refritl5_prop,ano,cidade) %>% na.omit(), 
+                   family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+refri_multi = geeglm(refritl5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + factor(ano), 
+                     id = cidade, data = dados %>% 
+                       select(refritl5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                     family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(refri_multi)
+
+Tabela14.1 = rbind(TabelaGEENormal(refri_bi1),TabelaGEENormal(refri_bi2),TabelaGEENormal(refri_bi3),TabelaGEENormal(refri_bi4),
+                   TabelaGEENormal(refri_bi5),TabelaGEENormal(refri_bi6))
+Tabela14.2 = TabelaGEENormal(refri_multi)
+#write.xlsx(Tabela14.1 %>% as.data.frame(), 'Tabela 14.1.xlsx', rowNames = F)
+#write.xlsx(Tabela14.2 %>% as.data.frame(), 'Tabela 14.2.xlsx', rowNames = F)
+
+####==============
+#### feijao5_prop
+####==============
+feijao_bi1 = geeglm(feijao5_prop ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(feijao5_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_bi2 = geeglm(feijao5_prop ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(feijao5_prop,idade_60a79_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_bi3 = geeglm(feijao5_prop ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(feijao5_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_bi4 = geeglm(feijao5_prop ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(feijao5_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_bi5 = geeglm(feijao5_prop ~ Nota, id = cidade, 
+                    data = dados %>% select(feijao5_prop,Nota,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_bi6 = geeglm(feijao5_prop ~ factor(ano), id = cidade, 
+                    data = dados %>% select(feijao5_prop,ano,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+feijao_multi = geeglm(feijao5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop,
+                      id = cidade, data = dados %>% 
+                        select(feijao5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                      family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(feijao_multi)
+
+Tabela15.1 = rbind(TabelaGEENormal(feijao_bi1),TabelaGEENormal(feijao_bi2),TabelaGEENormal(feijao_bi3),TabelaGEENormal(feijao_bi4),
+                   TabelaGEENormal(feijao_bi5),TabelaGEENormal(feijao_bi6))
+Tabela15.2 = TabelaGEENormal(feijao_multi)
+#write.xlsx(Tabela15.1 %>% as.data.frame(), 'Tabela 15.1.xlsx', rowNames = F)
+#write.xlsx(Tabela15.2 %>% as.data.frame(), 'Tabela 15.2.xlsx', rowNames = F)
+
+####===========
+#### hart_prop
+####===========
+hart_bi1 = geeglm(hart_prop ~ sexo_M_prop, id = cidade, 
+                  data = dados %>% select(hart_prop,sexo_M_prop,cidade) %>% na.omit(), 
                   family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreco1)
 
-#sem idh e com ano
-flvreco2 = geeglm(flvreco_prop ~ sexo_M_prop*Nota + anos_de_estudo + plano_saude_nao_prop + 
-                    factor(ano), 
-                  id = cidade, data = dados %>% 
-                    select(flvreco_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+hart_bi2 = geeglm(hart_prop ~ idade_60a79_prop, id = cidade, 
+                  data = dados %>% select(hart_prop,idade_60a79_prop,cidade) %>% na.omit(), 
                   family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreco2)
 
-#com idh e com ano
-flvreco3 = geeglm(flvreco_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                    Nota*IDHM + factor(ano), 
-                  id = cidade, data = dados %>% 
-                    select(flvreco_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
+hart_bi3 = geeglm(hart_prop ~ anos_de_estudo, id = cidade, 
+                  data = dados %>% select(hart_prop,anos_de_estudo,cidade) %>% na.omit(), 
                   family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(flvreco3)
 
-#com idh e sem ano
-refri1 = geeglm(refritl5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + 
-                  IDHM, 
-                id = cidade, data = dados %>% 
-                  select(refritl5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(refri1)
+hart_bi4 = geeglm(hart_prop ~ plano_saude_nao_prop, id = cidade, 
+                  data = dados %>% select(hart_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#sem idh e com ano
-refri2 = geeglm(refritl5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + 
-                  factor(ano), 
-                id = cidade, data = dados %>% 
-                  select(refritl5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(refri2)
+hart_bi5 = geeglm(hart_prop ~ Nota, id = cidade, 
+                  data = dados %>% select(hart_prop,Nota,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e com ano
-refri3 = geeglm(refritl5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + 
-                  factor(ano), 
-                id = cidade, data = dados %>% 
-                  select(refritl5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(refri3)
+hart_bi6 = geeglm(hart_prop ~ factor(ano), id = cidade, 
+                  data = dados %>% select(hart_prop,ano,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
+hart_multi = geeglm(hart_prop ~ sexo_M_prop*Nota + idade_60a79_prop + anos_de_estudo*Nota,
+                    id = cidade, data = dados %>% 
+                      select(hart_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(),  
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(hart_multi)
 
-write.xlsx(TabelaGEENormal(imc1) %>% as.data.frame(), 'Tabela 11.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(imc2) %>% as.data.frame(), 'Tabela 11.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(imc3) %>% as.data.frame(), 'Tabela 11.3.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreg1) %>% as.data.frame(), 'Tabela 12.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreg2) %>% as.data.frame(), 'Tabela 12.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreg3) %>% as.data.frame(), 'Tabela 12.3.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreco1) %>% as.data.frame(), 'Tabela 13.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreco2) %>% as.data.frame(), 'Tabela 13.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(flvreco3) %>% as.data.frame(), 'Tabela 13.3.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(refri1) %>% as.data.frame(), 'Tabela 14.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(refri2) %>% as.data.frame(), 'Tabela 14.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(refri3) %>% as.data.frame(), 'Tabela 14.3.xlsx', rowNames = F)
+Tabela16.1 = rbind(TabelaGEENormal(hart_bi1),TabelaGEENormal(hart_bi2),TabelaGEENormal(hart_bi3),TabelaGEENormal(hart_bi4),
+                   TabelaGEENormal(hart_bi5),TabelaGEENormal(hart_bi6))
+Tabela16.2 = TabelaGEENormal(hart_multi)
+#write.xlsx(Tabela16.1 %>% as.data.frame(), 'Tabela 16.1.xlsx', rowNames = F)
+#write.xlsx(Tabela16.2 %>% as.data.frame(), 'Tabela 16.2.xlsx', rowNames = F)
 
-#com idh e sem ano
-feijao1 = geeglm(feijao5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                   Nota*IDHM,
-                 id = cidade, data = dados %>% 
-                   select(feijao5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                 family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(feijao1)
+####===========
+#### hart_prop
+####===========
+diab_bi1 = geeglm(diab_prop ~ sexo_M_prop, id = cidade, 
+                  data = dados %>% select(diab_prop,sexo_M_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#sem idh e com ano
-feijao2 = geeglm(feijao5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop + 
-                   factor(ano),
-                 id = cidade, data = dados %>% 
-                   select(feijao5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                 family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(feijao2)
+diab_bi2 = geeglm(diab_prop ~ idade_60a79_prop, id = cidade, 
+                  data = dados %>% select(diab_prop,idade_60a79_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e com ano
-feijao3 = geeglm(feijao5_prop ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop + 
-                   Nota*IDHM + factor(ano), 
-                 id = cidade, data = dados %>% 
-                   select(feijao5_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-                 family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(feijao3)
+diab_bi3 = geeglm(diab_prop ~ anos_de_estudo, id = cidade, 
+                  data = dados %>% select(diab_prop,anos_de_estudo,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e sem ano
-hart1 = geeglm(hart_prop ~ sexo_M_prop*Nota + idade_60a79_prop + anos_de_estudo*Nota,
-               id = cidade, data = dados %>% 
-                 select(hart_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(hart1)
+diab_bi4 = geeglm(diab_prop ~ plano_saude_nao_prop, id = cidade, 
+                  data = dados %>% select(diab_prop,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#sem idh e com ano
-hart2 = geeglm(hart_prop ~ sexo_M_prop*Nota + idade_60a79_prop + anos_de_estudo*Nota + 
-                 factor(ano),
-               id = cidade, data = dados %>% 
-                 select(hart_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(hart2)
+diab_bi5 = geeglm(diab_prop ~ Nota, id = cidade, 
+                  data = dados %>% select(diab_prop,Nota,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e com ano
-hart3 = geeglm(hart_prop ~ sexo_M_prop*Nota + idade_60a79_prop + anos_de_estudo*Nota, 
-               id = cidade, data = dados %>% 
-                 select(hart_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(hart3)
+diab_bi6 = geeglm(diab_prop ~ factor(ano), id = cidade, 
+                  data = dados %>% select(diab_prop,ano,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-#com idh e sem ano
-diab1 = geeglm(diab_prop ~ idade_60a79_prop + 
-                 IDHM,
-               id = cidade, data = dados %>% 
-                 select(diab_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(diab1)
+diab_multi = geeglm(diab_prop ~ idade_60a79_prop + anos_de_estudo + factor(ano), 
+                    id = cidade, data = dados %>% 
+                      select(diab_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(diab_multi)
 
-#sem idh e com ano
-diab2 = geeglm(diab_prop ~ idade_60a79_prop + anos_de_estudo + 
-                 factor(ano),
-               id = cidade, data = dados %>% 
-                 select(diab_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(diab2)
+Tabela17.1 = rbind(TabelaGEENormal(diab_bi1),TabelaGEENormal(diab_bi2),TabelaGEENormal(diab_bi3),TabelaGEENormal(diab_bi4),
+                   TabelaGEENormal(diab_bi5),TabelaGEENormal(diab_bi6))
+Tabela17.2 = TabelaGEENormal(diab_multi)
+write.xlsx(Tabela17.1 %>% as.data.frame(), 'Tabela 17.1.xlsx', rowNames = F)
+write.xlsx(Tabela17.2 %>% as.data.frame(), 'Tabela 17.2.xlsx', rowNames = F)
 
-#com idh e com ano
-diab3 = geeglm(diab_prop ~ idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + 
-                 IDHM + factor(ano), 
-               id = cidade, data = dados %>% 
-                 select(diab_prop,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,IDHM,cidade) %>% na.omit(), 
-               family = gaussian(link = 'identity'), corstr = "exchangeable")
-summary(diab3)
-
-write.xlsx(TabelaGEENormal(feijao1) %>% as.data.frame(), 'Tabela 15.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(feijao2) %>% as.data.frame(), 'Tabela 15.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(feijao3) %>% as.data.frame(), 'Tabela 15.3.xlsx', rowNames = F)
-
-write.xlsx(TabelaGEENormal(hart1) %>% as.data.frame(), 'Tabela 16.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(hart2) %>% as.data.frame(), 'Tabela 16.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(hart3) %>% as.data.frame(), 'Tabela 16.3.xlsx', rowNames = F)
-
-write.xlsx(TabelaGEENormal(feijao1) %>% as.data.frame(), 'Tabela 15.1.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(feijao2) %>% as.data.frame(), 'Tabela 15.2.xlsx', rowNames = F)
-write.xlsx(TabelaGEENormal(feijao3) %>% as.data.frame(), 'Tabela 15.3.xlsx', rowNames = F)
