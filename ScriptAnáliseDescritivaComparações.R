@@ -344,9 +344,11 @@ dados = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qua
 #dados1 = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 06-05-2024.xlsx", sheet = 1)
 dados = dados %>% 
   mutate(IMC_i_cat_excesso_prop_inv = 1-IMC_i_cat_excesso_prop,
-         refritl5_prop_inv = 1-refritl5_prop) %>% 
+         refritl5_prop_inv = 1-refritl5_prop,
+         hart_prop_inv = 1-hart_prop,
+         diab_prop_inv = 1-diab_prop) %>% 
   mutate(Indicador = rowMeans(select(., IMC_i_cat_excesso_prop_inv, flvreg_prop, flvreco_prop, 
-                                     refritl5_prop_inv, feijao5_prop, hart_prop, diab_prop), na.rm = TRUE))
+                                     refritl5_prop_inv, feijao5_prop, hart_prop_inv, diab_prop_inv), na.rm = TRUE))
 
 ####============================
 #### Distribuição das variáveis
@@ -840,6 +842,12 @@ Tabela11.2 = TabelaGEENormal(imc_multi)
 #write.xlsx(Tabela11.1 %>% as.data.frame(), 'Tabela 11.1.xlsx', rowNames = F)
 #write.xlsx(Tabela11.2 %>% as.data.frame(), 'Tabela 11.2.xlsx', rowNames = F)
 
+plot(residuals(imc_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(imc_multi, type = "pearson"))
+qqline(residuals(imc_multi, type = "pearson"), col = "red")
+
 ####=============
 #### flvreg_prop
 ####=============
@@ -878,6 +886,12 @@ Tabela12.1 = rbind(TabelaGEENormal(flvreg_bi1),TabelaGEENormal(flvreg_bi2),Tabel
 Tabela12.2 = TabelaGEENormal(flvreg_multi)
 #write.xlsx(Tabela12.1 %>% as.data.frame(), 'Tabela 12.1.xlsx', rowNames = F)
 #write.xlsx(Tabela12.2 %>% as.data.frame(), 'Tabela 12.2.xlsx', rowNames = F)
+
+plot(residuals(flvreg_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(flvreg_multi, type = "pearson"))
+qqline(residuals(flvreg_multi, type = "pearson"), col = "red")
 
 ####==============
 #### flvreco_prop
@@ -918,6 +932,12 @@ Tabela13.2 = TabelaGEENormal(flvreco_multi)
 #write.xlsx(Tabela13.1 %>% as.data.frame(), 'Tabela 13.1.xlsx', rowNames = F)
 #write.xlsx(Tabela13.2 %>% as.data.frame(), 'Tabela 13.2.xlsx', rowNames = F)
 
+plot(residuals(flvreco_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(flvreco_multi, type = "pearson"))
+qqline(residuals(flvreco_multi, type = "pearson"), col = "red")
+
 ####===============
 #### refritl5_prop
 ####===============
@@ -956,6 +976,12 @@ Tabela14.1 = rbind(TabelaGEENormal(refri_bi1),TabelaGEENormal(refri_bi2),TabelaG
 Tabela14.2 = TabelaGEENormal(refri_multi)
 #write.xlsx(Tabela14.1 %>% as.data.frame(), 'Tabela 14.1.xlsx', rowNames = F)
 #write.xlsx(Tabela14.2 %>% as.data.frame(), 'Tabela 14.2.xlsx', rowNames = F)
+
+plot(residuals(refri_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(refri_multi, type = "pearson"))
+qqline(residuals(refri_multi, type = "pearson"), col = "red")
 
 ####==============
 #### feijao5_prop
@@ -996,6 +1022,12 @@ Tabela15.2 = TabelaGEENormal(feijao_multi)
 #write.xlsx(Tabela15.1 %>% as.data.frame(), 'Tabela 15.1.xlsx', rowNames = F)
 #write.xlsx(Tabela15.2 %>% as.data.frame(), 'Tabela 15.2.xlsx', rowNames = F)
 
+plot(residuals(feijao_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(feijao_multi, type = "pearson"))
+qqline(residuals(feijao_multi, type = "pearson"), col = "red")
+
 ####===========
 #### hart_prop
 ####===========
@@ -1035,8 +1067,14 @@ Tabela16.2 = TabelaGEENormal(hart_multi)
 #write.xlsx(Tabela16.1 %>% as.data.frame(), 'Tabela 16.1.xlsx', rowNames = F)
 #write.xlsx(Tabela16.2 %>% as.data.frame(), 'Tabela 16.2.xlsx', rowNames = F)
 
+plot(residuals(hart_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(hart_multi, type = "pearson"))
+qqline(residuals(hart_multi, type = "pearson"), col = "red")
+
 ####===========
-#### hart_prop
+#### diab_prop
 ####===========
 diab_bi1 = geeglm(diab_prop ~ sexo_M_prop, id = cidade, 
                   data = dados %>% select(diab_prop,sexo_M_prop,cidade) %>% na.omit(), 
@@ -1071,6 +1109,95 @@ summary(diab_multi)
 Tabela17.1 = rbind(TabelaGEENormal(diab_bi1),TabelaGEENormal(diab_bi2),TabelaGEENormal(diab_bi3),TabelaGEENormal(diab_bi4),
                    TabelaGEENormal(diab_bi5),TabelaGEENormal(diab_bi6))
 Tabela17.2 = TabelaGEENormal(diab_multi)
-write.xlsx(Tabela17.1 %>% as.data.frame(), 'Tabela 17.1.xlsx', rowNames = F)
-write.xlsx(Tabela17.2 %>% as.data.frame(), 'Tabela 17.2.xlsx', rowNames = F)
+#write.xlsx(Tabela17.1 %>% as.data.frame(), 'Tabela 17.1.xlsx', rowNames = F)
+#write.xlsx(Tabela17.2 %>% as.data.frame(), 'Tabela 17.2.xlsx', rowNames = F)
 
+plot(residuals(diab_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(diab_multi, type = "pearson"))
+qqline(residuals(diab_multi, type = "pearson"), col = "red")
+
+####===========
+#### Indicador
+####===========
+Ind_bi1 = geeglm(Indicador ~ sexo_M_prop, id = cidade, 
+                  data = dados %>% select(Indicador,sexo_M_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_bi2 = geeglm(Indicador ~ idade_60a79_prop, id = cidade, 
+                  data = dados %>% select(Indicador,idade_60a79_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_bi3 = geeglm(Indicador ~ anos_de_estudo, id = cidade, 
+                  data = dados %>% select(Indicador,anos_de_estudo,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_bi4 = geeglm(Indicador ~ plano_saude_nao_prop, id = cidade, 
+                  data = dados %>% select(Indicador,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_bi5 = geeglm(Indicador ~ Nota, id = cidade, 
+                  data = dados %>% select(Indicador,Nota,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_bi6 = geeglm(Indicador ~ factor(ano), id = cidade, 
+                  data = dados %>% select(Indicador,ano,cidade) %>% na.omit(), 
+                  family = gaussian(link = 'identity'), corstr = "exchangeable")
+
+Ind_multi = geeglm(Indicador ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop + factor(ano), 
+                   id = cidade, data = dados %>% 
+                     select(Indicador,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                    family = gaussian(link = 'identity'), corstr = "exchangeable")
+summary(Ind_multi)
+
+Tabela18.1 = rbind(TabelaGEENormal(Ind_bi1),TabelaGEENormal(Ind_bi2),TabelaGEENormal(Ind_bi3),TabelaGEENormal(Ind_bi4),
+                   TabelaGEENormal(Ind_bi5),TabelaGEENormal(Ind_bi6))
+Tabela18.2 = TabelaGEENormal(Ind_multi)
+#write.xlsx(Tabela18.1 %>% as.data.frame(), 'Tabela 18.1.xlsx', rowNames = F)
+#write.xlsx(Tabela18.2 %>% as.data.frame(), 'Tabela 18.2.xlsx', rowNames = F)
+
+plot(residuals(Ind_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+abline(h = 0, col = "red")
+
+qqnorm(residuals(Ind_multi, type = "pearson"))
+qqline(residuals(Ind_multi, type = "pearson"), col = "red")
+
+####============
+#### Taxa ICSAP
+####============
+taxa_bi1 = geeglm(TaxaICSAP ~ sexo_M_prop, id = cidade, 
+                  data = dados %>% select(TaxaICSAP,sexo_M_prop,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_bi2 = geeglm(TaxaICSAP ~ idade_60a79_prop, id = cidade, 
+                  data = dados %>% select(TaxaICSAP,idade_60a79_prop,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_bi3 = geeglm(TaxaICSAP ~ anos_de_estudo, id = cidade, 
+                  data = dados %>% select(TaxaICSAP,anos_de_estudo,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_bi4 = geeglm(TaxaICSAP ~ plano_saude_nao_prop, id = cidade, 
+                  data = dados %>% select(TaxaICSAP,plano_saude_nao_prop,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_bi5 = geeglm(TaxaICSAP ~ Nota, id = cidade, 
+                  data = dados %>% select(TaxaICSAP,Nota,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_bi6 = geeglm(TaxaICSAP ~ factor(ano), id = cidade, 
+                  data = dados %>% select(TaxaICSAP,ano,cidade) %>% na.omit(), 
+                  family = Gamma(link = "log"), corstr = "exchangeable")
+
+taxa_multi = geeglm(TaxaICSAP ~ idade_60a79_prop + anos_de_estudo*Nota + plano_saude_nao_prop*Nota + factor(ano), 
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi)
+
+Tabela19.1 = rbind(TabelaGEEGama(taxa_bi1),TabelaGEEGama(taxa_bi2),TabelaGEEGama(taxa_bi3),TabelaGEEGama(taxa_bi4),
+                   TabelaGEEGama(taxa_bi5),TabelaGEEGama(taxa_bi6))
+Tabela19.2 = TabelaGEEGama(taxa_multi)
+#write.xlsx(Tabela19.1 %>% as.data.frame(), 'Tabela 19.1.xlsx', rowNames = F)
+#write.xlsx(Tabela19.2 %>% as.data.frame(), 'Tabela 19.2.xlsx', rowNames = F)
