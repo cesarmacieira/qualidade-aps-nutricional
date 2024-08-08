@@ -129,6 +129,14 @@ DadosICSAP = left_join(icsap2_agg,
 #Capitais
 DadosICSAP_Capitais = DadosICSAP %>%
   mutate(SomaICSAP = rowSums(select(., ANEMIA, DEFICIENCIAS_NUTRICIONAIS, DIABETES_MELITUS, HIPERTENSAO)),
-         TaxaICSAP = SomaICSAP/POP)
+         TaxaICSAP = SomaICSAP/POP,
+         TaxaANEMIA = ANEMIA/POP,
+         TaxaDEFICIENCIAS_NUTRICIONAIS = DEFICIENCIAS_NUTRICIONAIS/POP,
+         TaxaDIABETES_MELITUS = DIABETES_MELITUS/POP,
+         TaxaHIPERTENSAO = HIPERTENSAO/POP) %>% 
+  mutate(TaxaICSAP = TaxaICSAP*1000, TaxaANEMIA = TaxaANEMIA*1000,
+         TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS*1000,
+         TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS*1000,
+         TaxaHIPERTENSAO = TaxaHIPERTENSAO*1000)
 DadosICSAP_Capitais %>% filter(Nome.do.Município == 'Porto Velho')
 write.xlsx(DadosICSAP_Capitais, 'DadosICSAP_Capitais.xlsx')
