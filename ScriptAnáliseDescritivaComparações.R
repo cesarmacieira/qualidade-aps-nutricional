@@ -338,8 +338,8 @@ TabelaGLMMBeta = function(modelo){
 ####=============================
 #### Carregando o banco de dados 
 ####=============================
-dados = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 23-05-2024.xlsx", sheet = 1)},
-                 error = function(e) {read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 23-05-2024.xlsx", sheet = 1)})
+dados = tryCatch({read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 13-08-2024.xlsx", sheet = 1)},
+                 error = function(e) {read.xlsx("D:/NESCON/Trabalho - Catarina/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 13-08-2024.xlsx", sheet = 1)})
 
 #dados1 = read.xlsx("C:/Users/cesar_macieira/Desktop/Usiminas/Nescon/qualidade-aps-nutricional/Dados Catarina Vigitel ICSAP Notas PMAQ POP Leitos Planos Priv ESF Gini IVS IDHM Porte Est Eq 06-05-2024.xlsx", sheet = 1)
 dados = dados %>% 
@@ -360,6 +360,7 @@ variaveis = c("sexo_M_prop","idade_60a79_prop","civil_uniaoest_casado_prop","ano
               "flvdia_media","flvreco_prop","refritl5_prop","feijao5_prop",
               "hart_prop","diab_prop","POP","ANEMIA","DEFICIENCIAS_NUTRICIONAIS",
               "DIABETES_MELITUS","HIPERTENSAO","SomaICSAP","TaxaICSAP","Nota",
+              "TaxaANEMIA","TaxaDEFICIENCIAS_NUTRICIONAIS","TaxaDIABETES_MELITUS","TaxaHIPERTENSAO",
               "População","Leitos.SUS","Taxa.Cob.Planos.Priv","Cobertura.ESF","IVS","IDHM","Gini")
 
 #cruadia_cat_prop, cozidadia_cat_prop e sucodia_media são compostos por 0's ou 1's
@@ -369,7 +370,9 @@ Tabela1 =
                                  hortareg_prop,frutareg_prop,flvreg_prop,hortadia_media,
                                  sofrutadia_media,frutadia_media,flvdia_media,flvreco_prop,refritl5_prop,feijao5_prop,
                                  hart_prop,diab_prop,POP,ANEMIA,DEFICIENCIAS_NUTRICIONAIS,DIABETES_MELITUS,HIPERTENSAO,
-                                 SomaICSAP,TaxaICSAP,Nota,População,Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,IVS,IDHM,Gini) %>% 
+                                 SomaICSAP,TaxaICSAP,Nota,
+                                 TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO,
+                                 População,Leitos.SUS,Taxa.Cob.Planos.Priv,Cobertura.ESF,IVS,IDHM,Gini) %>% 
             map(TesteDeNormalidade))
 #write.xlsx(Tabela1 %>% as.data.frame(), 'Tabela 1.xlsx')
 
@@ -434,7 +437,11 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados$SomaICSAP, dados$ano, dados$cidade_nome)$tabela,
 #                   FriedmanTeste(dados$TaxaICSAP, dados$ano, dados$cidade_nome)$tabela,
 #                   FriedmanTeste(dados_comp$Nota, dados_comp$ano, dados_comp$cidade_nome)$tabela,
-#                   FriedmanTeste(dados_inc$Nota, dados_inc$ano, dados_inc$cidade_nome)$tabela)
+#                   FriedmanTeste(dados_inc$Nota, dados_inc$ano, dados_inc$cidade_nome)$tabela,
+#                   FriedmanTeste(dados$TaxaANEMIA, dados$ano, dados$cidade_nome)$tabela,
+#                   FriedmanTeste(dados$TaxaDEFICIENCIAS_NUTRICIONAIS, dados$ano, dados$cidade_nome)$tabela,
+#                   FriedmanTeste(dados$TaxaDIABETES_MELITUS, dados$ano, dados$cidade_nome)$tabela,
+#                   FriedmanTeste(dados$TaxaHIPERTENSAO, dados$ano, dados$cidade_nome)$tabela)
 # Tabela2.0.1 = rbind(FriedmanTeste(dados$IMC_media, dados$ano, dados$cidade_nome)$C.Multiplas,
 #                     FriedmanTeste(dados$IMC_cat_baixo_prop, dados$ano, dados$cidade_nome)$C.Multiplas,
 #                     FriedmanTeste(dados$IMC_cat_excesso_prop, dados$ano, dados$cidade_nome)$C.Multiplas,
@@ -456,11 +463,16 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                     FriedmanTeste(dados_comp$Nota, dados_comp$ano, dados_comp$cidade_nome)$C.Multiplas)
 # Tabela2.0.2 = FriedmanTeste(dados_inc$Nota, dados_inc$ano, dados_inc$cidade_nome)$C.Multiplas
 # Tabela2.0.3 = FriedmanTeste(dados$feijao5_prop, dados$ano, dados$cidade_nome)$C.Multiplas
+# Tabela2.0.4 = rbind(FriedmanTeste(dados$TaxaANEMIA, dados$ano, dados$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados$TaxaDEFICIENCIAS_NUTRICIONAIS, dados$ano, dados$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados$TaxaDIABETES_MELITUS, dados$ano, dados$cidade_nome)$C.Multiplas,
+#                     FriedmanTeste(dados$TaxaHIPERTENSAO, dados$ano, dados$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela2.0 %>% as.data.frame(), 'Tabela 2.0.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.1 %>% as.data.frame(), 'Tabela 2.0.1.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.2 %>% as.data.frame(), 'Tabela 2.0.2.xlsx', rowNames = T)
 # write.xlsx(Tabela2.0.3 %>% as.data.frame(), 'Tabela 2.0.3.xlsx', rowNames = T)
-
+# write.xlsx(Tabela2.0.4 %>% as.data.frame(), 'Tabela 2.0.4.xlsx', rowNames = T)
+# 
 # Tabela2 = rbind(FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$tabela,
@@ -480,7 +492,11 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                 FriedmanTeste(dados_CO$HIPERTENSAO, dados_CO$ano, dados_CO$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_CO$SomaICSAP, dados_CO$ano, dados_CO$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade_nome)$tabela,
-#                 FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$TaxaANEMIA, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$TaxaDIABETES_MELITUS, dados_CO$ano, dados_CO$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_CO$TaxaHIPERTENSAO, dados_CO$ano, dados_CO$cidade_nome)$tabela)
 # Tabela2.1 = rbind(FriedmanTeste(dados_CO$IMC_media, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_CO$IMC_cat_baixo_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_CO$IMC_cat_excesso_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
@@ -501,10 +517,15 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados_CO$TaxaICSAP, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_CO$Nota, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas)
 # Tabela2.2 = FriedmanTeste(dados_CO$feijao5_prop, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas
+# Tabela2.3 = rbind(FriedmanTeste(dados_CO$TaxaANEMIA, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$TaxaDIABETES_MELITUS, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_CO$TaxaHIPERTENSAO, dados_CO$ano, dados_CO$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela2 %>% as.data.frame(), 'Tabela 2.xlsx', rowNames = T)
 # write.xlsx(Tabela2.1 %>% as.data.frame(), 'Tabela 2.1.xlsx', rowNames = T)
 # write.xlsx(Tabela2.2 %>% as.data.frame(), 'Tabela 2.2.xlsx', rowNames = T)
-
+# write.xlsx(Tabela2.3 %>% as.data.frame(), 'Tabela 2.3.xlsx', rowNames = T)
+# 
 # Tabela3 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_ND$IMC_cat_excesso_prop, dados_ND$ano, dados_ND$cidade_nome)$tabela,
@@ -525,7 +546,11 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                 FriedmanTeste(dados_ND$SomaICSAP, dados_ND$ano, dados_ND$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_ND$TaxaICSAP, dados_ND$ano, dados_ND$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade_nome)$tabela,
-#                 FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$TaxaANEMIA, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$TaxaDIABETES_MELITUS, dados_ND$ano, dados_ND$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_ND$TaxaHIPERTENSAO, dados_ND$ano, dados_ND$cidade_nome)$tabela)
 # 
 # Tabela3.1 = rbind(FriedmanTeste(dados_ND$IMC_media, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_ND$IMC_cat_baixo_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
@@ -549,11 +574,16 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados_ND_comp$Nota, dados_ND_comp$ano, dados_ND_comp$cidade_nome)$C.Multiplas)
 # Tabela3.2 = FriedmanTeste(dados_ND_inc$Nota, dados_ND_inc$ano, dados_ND_inc$cidade_nome)$C.Multiplas
 # Tabela3.3 = FriedmanTeste(dados_ND$feijao5_prop, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas
+# Tabela3.4 = rbind(FriedmanTeste(dados_ND$TaxaANEMIA, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$TaxaDIABETES_MELITUS, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_ND$TaxaHIPERTENSAO, dados_ND$ano, dados_ND$cidade_nome)$C.Multiplas)
 # 
 # write.xlsx(Tabela3 %>% as.data.frame(), 'Tabela 3.xlsx', rowNames = T)
 # write.xlsx(Tabela3.1 %>% as.data.frame(), 'Tabela 3.1.xlsx', rowNames = T)
 # write.xlsx(Tabela3.2 %>% as.data.frame(), 'Tabela 3.2.xlsx', rowNames = T)
 # write.xlsx(Tabela3.3 %>% as.data.frame(), 'Tabela 3.3.xlsx', rowNames = T)
+# write.xlsx(Tabela3.4 %>% as.data.frame(), 'Tabela 3.4.xlsx', rowNames = T)
 # 
 # Tabela4 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$tabela,
@@ -574,8 +604,12 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                 FriedmanTeste(dados_NT$HIPERTENSAO, dados_NT$ano, dados_NT$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_NT$SomaICSAP, dados_NT$ano, dados_NT$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_NT$TaxaICSAP, dados_NT$ano, dados_NT$cidade_nome)$tabela,
-#                 FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade_nome)$tabela,
 #                 #FriedmanTeste(dados_NT_inc$Nota, dados_NT_inc$ano, dados_NT_inc$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_NT$TaxaANEMIA, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$TaxaDIABETES_MELITUS, dados_NT$ano, dados_NT$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_NT$TaxaHIPERTENSAO, dados_NT$ano, dados_NT$cidade_nome)$tabela)
 # 
 # Tabela4.1 = rbind(FriedmanTeste(dados_NT$IMC_media, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_NT$IMC_cat_baixo_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
@@ -599,10 +633,15 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados_NT_comp$Nota, dados_NT_comp$ano, dados_NT_comp$cidade_nome)$C.Multiplas)
 # Tabela4.2 = FriedmanTeste(dados_NT$feijao5_prop, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas
 # #Tabela4.3 = FriedmanTeste(dados_NT_inc$feijao5_prop, dados_NT_inc$ano, dados_NT_inc$cidade_nome)$C.Multiplas
+# Tabela4.3 = rbind(FriedmanTeste(dados_NT$TaxaANEMIA, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$TaxaDIABETES_MELITUS, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_NT$TaxaHIPERTENSAO, dados_NT$ano, dados_NT$cidade_nome)$C.Multiplas)
 # 
 # write.xlsx(Tabela4 %>% as.data.frame(), 'Tabela 4.xlsx', rowNames = T)
 # write.xlsx(Tabela4.1 %>% as.data.frame(), 'Tabela 4.1.xlsx', rowNames = T)
 # write.xlsx(Tabela4.2 %>% as.data.frame(), 'Tabela 4.2.xlsx', rowNames = T)
+# write.xlsx(Tabela4.3 %>% as.data.frame(), 'Tabela 4.3.xlsx', rowNames = T)
 # 
 # Tabela5 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
@@ -623,7 +662,11 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                 FriedmanTeste(dados_Sud$HIPERTENSAO, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sud$SomaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
-#                 FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$TaxaANEMIA, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$TaxaDIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sud$TaxaHIPERTENSAO, dados_Sud$ano, dados_Sud$cidade_nome)$tabela)
 # 
 # Tabela5.1 = rbind(FriedmanTeste(dados_Sud$IMC_media, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_Sud$IMC_cat_baixo_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
@@ -646,11 +689,15 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados_Sud$TaxaICSAP, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_Sud$Nota, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas)
 # Tabela5.2 = FriedmanTeste(dados_Sud$feijao5_prop, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas
-# 
+# Tabela5.3 = rbind(FriedmanTeste(dados_Sud$TaxaANEMIA, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$TaxaDIABETES_MELITUS, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sud$TaxaHIPERTENSAO, dados_Sud$ano, dados_Sud$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela5 %>% as.data.frame(), 'Tabela 5.xlsx', rowNames = T)
 # write.xlsx(Tabela5.1 %>% as.data.frame(), 'Tabela 5.1.xlsx', rowNames = T)
 # write.xlsx(Tabela5.2 %>% as.data.frame(), 'Tabela 5.2.xlsx', rowNames = T)
-
+# write.xlsx(Tabela5.3 %>% as.data.frame(), 'Tabela 5.3.xlsx', rowNames = T)
+# 
 # Tabela6 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sul$IMC_cat_excesso_prop, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
@@ -670,7 +717,11 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                 FriedmanTeste(dados_Sul$HIPERTENSAO, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sul$SomaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
 #                 FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
-#                 FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade_nome)$tabela)
+#                 FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$TaxaANEMIA, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$TaxaDIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade_nome)$tabela,
+#                 FriedmanTeste(dados_Sul$TaxaHIPERTENSAO, dados_Sul$ano, dados_Sul$cidade_nome)$tabela)
 # 
 # Tabela6.1 = rbind(FriedmanTeste(dados_Sul$IMC_media, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_Sul$IMC_cat_baixo_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
@@ -693,10 +744,14 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 #                   FriedmanTeste(dados_Sul$TaxaICSAP, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
 #                   FriedmanTeste(dados_Sul$Nota, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas)
 # Tabela6.2 = FriedmanTeste(dados_Sul$feijao5_prop, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas
-# 
+# Tabela6.3 = rbind(FriedmanTeste(dados_Sul$TaxaANEMIA, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$TaxaDEFICIENCIAS_NUTRICIONAIS, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$TaxaDIABETES_MELITUS, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas,
+#                   FriedmanTeste(dados_Sul$TaxaHIPERTENSAO, dados_Sul$ano, dados_Sul$cidade_nome)$C.Multiplas)
 # write.xlsx(Tabela6 %>% as.data.frame(), 'Tabela 6.xlsx', rowNames = T)
 # write.xlsx(Tabela6.1 %>% as.data.frame(), 'Tabela 6.1.xlsx', rowNames = T)
 # write.xlsx(Tabela6.2 %>% as.data.frame(), 'Tabela 6.2.xlsx', rowNames = T)
+# write.xlsx(Tabela6.3 %>% as.data.frame(), 'Tabela 6.3.xlsx', rowNames = T)
 
 ####=============
 #### Correlações
@@ -704,7 +759,9 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 dados_corr = 
   dados %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                    feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                   anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                   anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                   TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO
+                   ) %>% as.matrix
 Tabela7 = cbind(Hmisc::rcorr(dados_corr, type = 'spearman')$r, Hmisc::rcorr(dados_corr, type = 'spearman')$P)
 #write.xlsx(Tabela7 %>% as.data.frame(),'Tabela 7.xlsx', rowNames = T)
 
@@ -722,17 +779,20 @@ dados2019 = dados %>% filter(ano == 2019)
 dados_corr2010 = 
   dados2010 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2011 = 
   dados2011 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2012 = 
   dados2012 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 Tabela8 = rbind(cbind(Hmisc::rcorr(dados_corr2010, type = 'spearman')$r, Hmisc::rcorr(dados_corr2010, type = 'spearman')$P),
                 cbind(Hmisc::rcorr(dados_corr2011, type = 'spearman')$r, Hmisc::rcorr(dados_corr2011, type = 'spearman')$P),
@@ -742,17 +802,20 @@ Tabela8 = rbind(cbind(Hmisc::rcorr(dados_corr2010, type = 'spearman')$r, Hmisc::
 dados_corr2013 = 
   dados2013 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2014 = 
   dados2014 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2015 = 
   dados2015 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 Tabela9 = rbind(cbind(Hmisc::rcorr(dados_corr2013, type = 'spearman')$r, Hmisc::rcorr(dados_corr2013, type = 'spearman')$P),
                  cbind(Hmisc::rcorr(dados_corr2014, type = 'spearman')$r, Hmisc::rcorr(dados_corr2014, type = 'spearman')$P),
@@ -762,22 +825,26 @@ Tabela9 = rbind(cbind(Hmisc::rcorr(dados_corr2013, type = 'spearman')$r, Hmisc::
 dados_corr2016 = 
   dados2016 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2017 = 
   dados2017 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2018 = 
   dados2018 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 dados_corr2019 = 
   dados2019 %>% select(Indicador,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,
                        feijao5_prop,hart_prop,diab_prop,sexo_M_prop,idade_60a79_prop,
-                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini) %>% as.matrix
+                       anos_de_estudo,plano_saude_nao_prop,TaxaICSAP,Nota,IVS,IDHM,Gini,
+                       TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO) %>% as.matrix
 
 Tabela10 = rbind(cbind(Hmisc::rcorr(dados_corr2016, type = 'spearman')$r, Hmisc::rcorr(dados_corr2016, type = 'spearman')$P),
                  cbind(Hmisc::rcorr(dados_corr2017, type = 'spearman')$r, Hmisc::rcorr(dados_corr2017, type = 'spearman')$P),
@@ -788,7 +855,8 @@ Tabela10 = rbind(cbind(Hmisc::rcorr(dados_corr2016, type = 'spearman')$r, Hmisc:
 ####=========
 #### Modelos
 ####=========
-#Respostas: IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, refritl5_prop, feijao5_prop, hart_prop, diab_prop e TaxaICSAP
+#Respostas: IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, refritl5_prop, feijao5_prop, hart_prop, diab_prop, TaxaICSAP,
+#TaxaANEMIA, TaxaDEFICIENCIAS_NUTRICIONAIS, TaxaDIABETES_MELITUS, TaxaHIPERTENSAO
 #Explicativas: sexo, faixa etária, anos de estudo, plano de saúde, Nota (IVS, IDH, Gini)
 # multi_imc1 = glmmTMB(Indicador ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop*Nota + 
 #                        Nota*IDHM + factor(ano) +
@@ -1201,3 +1269,184 @@ Tabela19.1 = rbind(TabelaGEEGama(taxa_bi1),TabelaGEEGama(taxa_bi2),TabelaGEEGama
 Tabela19.2 = TabelaGEEGama(taxa_multi)
 #write.xlsx(Tabela19.1 %>% as.data.frame(), 'Tabela 19.1.xlsx', rowNames = F)
 #write.xlsx(Tabela19.2 %>% as.data.frame(), 'Tabela 19.2.xlsx', rowNames = F)
+
+####=============
+#### Taxa ANEMIA
+####=============
+anemia_bi1 = geeglm(TaxaANEMIA ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,sexo_M_prop,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_bi2 = geeglm(TaxaANEMIA ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,idade_60a79_prop,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_bi3 = geeglm(TaxaANEMIA ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,anos_de_estudo,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_bi4 = geeglm(TaxaANEMIA ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,plano_saude_nao_prop,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_bi5 = geeglm(TaxaANEMIA ~ Nota, id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,Nota,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_bi6 = geeglm(TaxaANEMIA ~ factor(ano), id = cidade, 
+                    data = dados %>% select(TaxaANEMIA,ano,cidade) %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+anemia_multi = geeglm(TaxaANEMIA ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo*Nota + plano_saude_nao_prop, 
+                      id = cidade, data = dados %>% 
+                        select(TaxaANEMIA,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% 
+                        mutate(TaxaANEMIA = TaxaANEMIA + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi)
+
+Tabela20.1 = rbind(TabelaGEEGama(anemia_bi1),TabelaGEEGama(anemia_bi2),TabelaGEEGama(anemia_bi3),TabelaGEEGama(anemia_bi4),
+                   TabelaGEEGama(anemia_bi5),TabelaGEEGama(anemia_bi6))
+Tabela20.2 = TabelaGEEGama(anemia_multi)
+#write.xlsx(Tabela20.1 %>% as.data.frame(), 'Tabela 20.1.xlsx', rowNames = F)
+#write.xlsx(Tabela20.2 %>% as.data.frame(), 'Tabela 20.2.xlsx', rowNames = F)
+
+####================================
+#### Taxa DEFICIÊNCIAS NUTRICIONAIS
+####================================
+defnut_bi1 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,sexo_M_prop,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_bi2 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,idade_60a79_prop,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_bi3 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,anos_de_estudo,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_bi4 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,plano_saude_nao_prop,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_bi5 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ Nota, id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,Nota,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_bi6 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ factor(ano), id = cidade, 
+                    data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,ano,cidade) %>% 
+                      mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+defnut_multi = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop*Nota + 
+                        factor(ano), 
+                      id = cidade, data = dados %>% 
+                        select(TaxaDEFICIENCIAS_NUTRICIONAIS,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% 
+                        mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi)
+
+Tabela21.1 = rbind(TabelaGEEGama(defnut_bi1),TabelaGEEGama(defnut_bi2),TabelaGEEGama(defnut_bi3),TabelaGEEGama(defnut_bi4),
+                   TabelaGEEGama(defnut_bi5),TabelaGEEGama(defnut_bi6))
+Tabela21.2 = TabelaGEEGama(defnut_multi)
+#write.xlsx(Tabela21.1 %>% as.data.frame(), 'Tabela 21.1.xlsx', rowNames = F)
+#write.xlsx(Tabela21.2 %>% as.data.frame(), 'Tabela 21.2.xlsx', rowNames = F)
+
+####===============
+#### Taxa DIABETES
+####===============
+diabetes_bi1 = geeglm(TaxaDIABETES_MELITUS ~ sexo_M_prop, id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,sexo_M_prop,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_bi2 = geeglm(TaxaDIABETES_MELITUS ~ idade_60a79_prop, id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,idade_60a79_prop,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_bi3 = geeglm(TaxaDIABETES_MELITUS ~ anos_de_estudo, id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,anos_de_estudo,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_bi4 = geeglm(TaxaDIABETES_MELITUS ~ plano_saude_nao_prop, id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,plano_saude_nao_prop,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_bi5 = geeglm(TaxaDIABETES_MELITUS ~ Nota, id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,Nota,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_bi6 = geeglm(TaxaDIABETES_MELITUS ~ factor(ano), id = cidade, 
+                    data = dados %>% select(TaxaDIABETES_MELITUS,ano,cidade) %>% 
+                      mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+
+diabetes_multi = geeglm(TaxaDIABETES_MELITUS ~ plano_saude_nao_prop*Nota, 
+                      id = cidade, data = dados %>% 
+                        select(TaxaDIABETES_MELITUS,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% 
+                        mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi)
+
+Tabela22.1 = rbind(TabelaGEEGama(diabetes_bi1),TabelaGEEGama(diabetes_bi2),TabelaGEEGama(diabetes_bi3),TabelaGEEGama(diabetes_bi4),
+                   TabelaGEEGama(diabetes_bi5),TabelaGEEGama(diabetes_bi6))
+Tabela22.2 = TabelaGEEGama(diabetes_multi)
+#write.xlsx(Tabela22.1 %>% as.data.frame(), 'Tabela 22.1.xlsx', rowNames = F)
+#write.xlsx(Tabela22.2 %>% as.data.frame(), 'Tabela 22.2.xlsx', rowNames = F)
+
+####==================
+#### Taxa Hipertensão
+####==================
+hipertensao_bi1 = geeglm(TaxaHIPERTENSAO ~ sexo_M_prop, id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,sexo_M_prop,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_bi2 = geeglm(TaxaHIPERTENSAO ~ idade_60a79_prop, id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,idade_60a79_prop,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_bi3 = geeglm(TaxaHIPERTENSAO ~ anos_de_estudo, id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,anos_de_estudo,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_bi4 = geeglm(TaxaHIPERTENSAO ~ plano_saude_nao_prop, id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,plano_saude_nao_prop,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_bi5 = geeglm(TaxaHIPERTENSAO ~ Nota, id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,Nota,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_bi6 = geeglm(TaxaHIPERTENSAO ~ factor(ano), id = cidade, 
+                      data = dados %>% select(TaxaHIPERTENSAO,ano,cidade) %>% 
+                        mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                      family = Gamma(link = "log"), corstr = "exchangeable")
+
+hipertensao_multi = geeglm(TaxaHIPERTENSAO ~ sexo_M_prop + anos_de_estudo*Nota + plano_saude_nao_prop + 
+                          factor(ano), 
+                        id = cidade, data = dados %>% 
+                          select(TaxaHIPERTENSAO,ano,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% 
+                          mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
+                        family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi)
+
+Tabela23.1 = rbind(TabelaGEEGama(hipertensao_bi1),TabelaGEEGama(hipertensao_bi2),TabelaGEEGama(hipertensao_bi3),TabelaGEEGama(hipertensao_bi4),
+                   TabelaGEEGama(hipertensao_bi5),TabelaGEEGama(hipertensao_bi6))
+Tabela23.2 = TabelaGEEGama(hipertensao_multi)
+#write.xlsx(Tabela23.1 %>% as.data.frame(), 'Tabela 23.1.xlsx', rowNames = F)
+#write.xlsx(Tabela23.2 %>% as.data.frame(), 'Tabela 23.2.xlsx', rowNames = F)
+
