@@ -1234,6 +1234,31 @@ qqline(residuals(Ind_multi, type = "pearson"), col = "red")
 ####============
 #### Taxa ICSAP
 ####============
+hist(dados$TaxaANEMIA)
+
+DescritivaCat(dados$TaxaANEMIA)
+geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + 
+         #sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + Nota + 
+         factor(ano), 
+       id = cidade, data = dados %>% 
+         select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota) %>% na.omit(), 
+       family = gaussian(link = 'identity'), corstr = "exchangeable") %>% summary()
+
+geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + 
+         sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + Nota + factor(ano),
+       id = cidade, data = dados %>% 
+         select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota) %>% na.omit(), 
+       family = Gamma(link = "log"), corstr = "exchangeable") %>% summary()
+
+aa = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + refritl5_prop + factor(ano), 
+       id = cidade, data = dados %>% 
+         select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade) %>% na.omit(), 
+       family = Gamma(link = "log"), corstr = "exchangeable") 
+TabelaGEEGama(aa)
+
+
 taxa_bi1 = geeglm(TaxaICSAP ~ sexo_M_prop, id = cidade, 
                   data = dados %>% select(TaxaICSAP,sexo_M_prop,cidade) %>% na.omit(), 
                   family = Gamma(link = "log"), corstr = "exchangeable")
