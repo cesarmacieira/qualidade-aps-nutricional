@@ -1225,11 +1225,11 @@ Tabela18.2 = TabelaGEENormal(Ind_multi)
 #write.xlsx(Tabela18.1 %>% as.data.frame(), 'Tabela 18.1.xlsx', rowNames = F)
 #write.xlsx(Tabela18.2 %>% as.data.frame(), 'Tabela 18.2.xlsx', rowNames = F)
 
-plot(residuals(Ind_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
-abline(h = 0, col = "red")
-
-qqnorm(residuals(Ind_multi, type = "pearson"))
-qqline(residuals(Ind_multi, type = "pearson"), col = "red")
+# plot(residuals(Ind_multi, type = "pearson"), main = "Resíduos do Modelo", ylab = "Resíduos de Pearson", xlab = "Índice")
+# abline(h = 0, col = "red")
+# 
+# qqnorm(residuals(Ind_multi, type = "pearson"))
+# qqline(residuals(Ind_multi, type = "pearson"), col = "red")
 
 ####============
 #### Taxa ICSAP
@@ -1241,21 +1241,69 @@ DescritivaNum(dados$TaxaDEFICIENCIAS_NUTRICIONAIS)
 DescritivaNum(dados$TaxaDIABETES_MELITUS)
 DescritivaNum(dados$TaxaHIPERTENSAO)
 
-taxa_multi = geeglm(TaxaANEMIA ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
-                    id = cidade, data = dados %>% 
-                      select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
-                             Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.1), 
-                    family = Gamma(link = "log"), corstr = "exchangeable")
-summary(taxa_multi)
-TabelaGEEGama(taxa_multi)
-
-taxa_multi = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
+taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop*Nota,
                     id = cidade, data = dados %>% 
                       select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
                              Nota) %>% na.omit(), 
                     family = Gamma(link = "log"), corstr = "exchangeable")
-summary(taxa_multi)
-TabelaGEEGama(taxa_multi)
+summary(taxa_multi1)
+TabelaGEEGama(taxa_multi1)
+
+taxa_multi2 = geeglm(TaxaICSAP ~ flvreg_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi2)
+TabelaGEEGama(taxa_multi2)
+
+taxa_multi3 = geeglm(TaxaICSAP ~ flvreco_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi3)
+TabelaGEEGama(taxa_multi3)
+
+taxa_multi4 = geeglm(TaxaICSAP ~ refritl5_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi4)
+TabelaGEEGama(taxa_multi4)
+
+taxa_multi5 = geeglm(TaxaICSAP ~ feijao5_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi5)
+TabelaGEEGama(taxa_multi5)
+
+taxa_multi6 = geeglm(TaxaICSAP ~ hart_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi6)
+TabelaGEEGama(taxa_multi6)
+
+taxa_multi7 = geeglm(TaxaICSAP ~ diab_prop*Nota,
+                    id = cidade, data = dados %>% 
+                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                             Nota) %>% na.omit(), 
+                    family = Gamma(link = "log"), corstr = "exchangeable")
+summary(taxa_multi7)
+TabelaGEEGama(taxa_multi7)
+
+TabelaGEEGama(taxa_multi1)
+TabelaGEEGama(taxa_multi2)
+TabelaGEEGama(taxa_multi3)
+TabelaGEEGama(taxa_multi4)
+TabelaGEEGama(taxa_multi5)
+TabelaGEEGama(taxa_multi6)
+TabelaGEEGama(taxa_multi7)
 
 ######################
 taxa_multi = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota +
@@ -1323,6 +1371,70 @@ Tabela19.2 = TabelaGEEGama(taxa_multi)
 ####=============
 #### Taxa ANEMIA
 ####=============
+anemia_multi1 = geeglm(TaxaANEMIA ~ IMC_i_cat_excesso_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi1)
+TabelaGEEGama(anemia_multi1)
+
+anemia_multi2 = geeglm(TaxaANEMIA ~ flvreg_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi2)
+TabelaGEEGama(anemia_multi2)
+
+anemia_multi3 = geeglm(TaxaANEMIA ~ flvreco_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi3)
+TabelaGEEGama(anemia_multi3)
+
+anemia_multi4 = geeglm(TaxaANEMIA ~ refritl5_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi4)
+TabelaGEEGama(anemia_multi4)
+
+anemia_multi5 = geeglm(TaxaANEMIA ~ feijao5_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi5)
+TabelaGEEGama(anemia_multi5)
+
+anemia_multi6 = geeglm(TaxaANEMIA ~ hart_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi6)
+TabelaGEEGama(anemia_multi6)
+
+anemia_multi7 = geeglm(TaxaANEMIA ~ diab_prop*Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaANEMIA,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                              Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.01), 
+                     family = Gamma(link = "log"), corstr = "exchangeable")
+summary(anemia_multi7)
+TabelaGEEGama(anemia_multi7)
+
+TabelaGEEGama(anemia_multi1)
+TabelaGEEGama(anemia_multi2)
+TabelaGEEGama(anemia_multi3)
+TabelaGEEGama(anemia_multi4)
+TabelaGEEGama(anemia_multi5)
+TabelaGEEGama(anemia_multi6)
+TabelaGEEGama(anemia_multi7)
+
 anemia_multi = geeglm(TaxaANEMIA ~ IMC_i_cat_excesso_prop + hart_prop ,
                     id = cidade, data = dados %>% 
                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
@@ -1381,6 +1493,72 @@ Tabela20.2 = TabelaGEEGama(anemia_multi)
 ####================================
 #### Taxa DEFICIÊNCIAS NUTRICIONAIS
 ####================================
+defnut_multi1 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ IMC_i_cat_excesso_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi1)
+TabelaGEEGama(defnut_multi1)
+
+defnut_multi2 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ flvreg_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi2)
+TabelaGEEGama(defnut_multi2)
+
+defnut_multi3 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ flvreco_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi3)
+TabelaGEEGama(defnut_multi3)
+
+defnut_multi4 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ refritl5_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi4)
+TabelaGEEGama(defnut_multi4)
+
+defnut_multi5 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ feijao5_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi5)
+TabelaGEEGama(defnut_multi5)
+
+defnut_multi6 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ hart_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi6)
+TabelaGEEGama(defnut_multi6)
+
+defnut_multi7 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ diab_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDEFICIENCIAS_NUTRICIONAIS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(defnut_multi7)
+TabelaGEEGama(defnut_multi7)
+
+TabelaGEEGama(defnut_multi1)
+TabelaGEEGama(defnut_multi2)
+TabelaGEEGama(defnut_multi3)
+TabelaGEEGama(defnut_multi4)
+TabelaGEEGama(defnut_multi5)
+TabelaGEEGama(defnut_multi6)
+TabelaGEEGama(defnut_multi7)
+
+
+
 defnut_bi1 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ sexo_M_prop, id = cidade, 
                     data = dados %>% select(TaxaDEFICIENCIAS_NUTRICIONAIS,sexo_M_prop,cidade) %>% 
                       mutate(TaxaDEFICIENCIAS_NUTRICIONAIS = TaxaDEFICIENCIAS_NUTRICIONAIS + 0.01) %>% na.omit(), 
@@ -1428,6 +1606,70 @@ Tabela21.2 = TabelaGEEGama(defnut_multi)
 ####===============
 #### Taxa DIABETES
 ####===============
+diabetes_multi1 = geeglm(TaxaDIABETES_MELITUS ~ IMC_i_cat_excesso_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi1)
+TabelaGEEGama(diabetes_multi1)
+
+diabetes_multi2 = geeglm(TaxaDIABETES_MELITUS ~ flvreg_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi2)
+TabelaGEEGama(diabetes_multi2)
+
+diabetes_multi3 = geeglm(TaxaDIABETES_MELITUS ~ flvreco_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi3)
+TabelaGEEGama(diabetes_multi3)
+
+diabetes_multi4 = geeglm(TaxaDIABETES_MELITUS ~ refritl5_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi4)
+TabelaGEEGama(diabetes_multi4)
+
+diabetes_multi5 = geeglm(TaxaDIABETES_MELITUS ~ feijao5_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi5)
+TabelaGEEGama(diabetes_multi5)
+
+diabetes_multi6 = geeglm(TaxaDIABETES_MELITUS ~ hart_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi6)
+TabelaGEEGama(diabetes_multi6)
+
+diabetes_multi7 = geeglm(TaxaDIABETES_MELITUS ~ diab_prop*Nota,
+                       id = cidade, data = dados %>% 
+                         select(TaxaDIABETES_MELITUS,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                Nota) %>% na.omit() %>% mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01), 
+                       family = Gamma(link = "log"), corstr = "exchangeable")
+summary(diabetes_multi7)
+TabelaGEEGama(diabetes_multi7)
+
+TabelaGEEGama(diabetes_multi1)
+TabelaGEEGama(diabetes_multi2)
+TabelaGEEGama(diabetes_multi3)
+TabelaGEEGama(diabetes_multi4)
+TabelaGEEGama(diabetes_multi5)
+TabelaGEEGama(diabetes_multi6)
+TabelaGEEGama(diabetes_multi7)
+
 diabetes_bi1 = geeglm(TaxaDIABETES_MELITUS ~ sexo_M_prop, id = cidade, 
                     data = dados %>% select(TaxaDIABETES_MELITUS,sexo_M_prop,cidade) %>% 
                       mutate(TaxaDIABETES_MELITUS = TaxaDIABETES_MELITUS + 0.01) %>% na.omit(), 
@@ -1474,6 +1716,70 @@ Tabela22.2 = TabelaGEEGama(diabetes_multi)
 ####==================
 #### Taxa Hipertensão
 ####==================
+hipertensao_multi1 = geeglm(TaxaHIPERTENSAO ~ IMC_i_cat_excesso_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi1)
+TabelaGEEGama(hipertensao_multi1)
+
+hipertensao_multi2 = geeglm(TaxaHIPERTENSAO ~ flvreg_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi2)
+TabelaGEEGama(hipertensao_multi2)
+
+hipertensao_multi3 = geeglm(TaxaHIPERTENSAO ~ flvreco_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi3)
+TabelaGEEGama(hipertensao_multi3)
+
+hipertensao_multi4 = geeglm(TaxaHIPERTENSAO ~ refritl5_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi4)
+TabelaGEEGama(hipertensao_multi4)
+
+hipertensao_multi5 = geeglm(TaxaHIPERTENSAO ~ feijao5_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi5)
+TabelaGEEGama(hipertensao_multi5)
+
+hipertensao_multi6 = geeglm(TaxaHIPERTENSAO ~ hart_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi6)
+TabelaGEEGama(hipertensao_multi6)
+
+hipertensao_multi7 = geeglm(TaxaHIPERTENSAO ~ diab_prop*Nota,
+                         id = cidade, data = dados %>% 
+                           select(TaxaHIPERTENSAO,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
+                                  Nota) %>% na.omit() %>% mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01), 
+                         family = Gamma(link = "log"), corstr = "exchangeable")
+summary(hipertensao_multi7)
+TabelaGEEGama(hipertensao_multi7)
+
+TabelaGEEGama(hipertensao_multi1)
+TabelaGEEGama(hipertensao_multi2)
+TabelaGEEGama(hipertensao_multi3)
+TabelaGEEGama(hipertensao_multi4)
+TabelaGEEGama(hipertensao_multi5)
+TabelaGEEGama(hipertensao_multi6)
+TabelaGEEGama(hipertensao_multi7)
+
 hipertensao_bi1 = geeglm(TaxaHIPERTENSAO ~ sexo_M_prop, id = cidade, 
                       data = dados %>% select(TaxaHIPERTENSAO,sexo_M_prop,cidade) %>% 
                         mutate(TaxaHIPERTENSAO = TaxaHIPERTENSAO + 0.01) %>% na.omit(), 
