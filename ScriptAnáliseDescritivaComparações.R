@@ -1231,20 +1231,44 @@ Tabela18.2 = TabelaGEENormal(Ind_multi)
 # qqnorm(residuals(Ind_multi, type = "pearson"))
 # qqline(residuals(Ind_multi, type = "pearson"), col = "red")
 
+####==============================
+#### Categorizando os indicadores
+####==============================
+dados$TaxaICSAPcat = case_when(dados$TaxaICSAP < median(dados$TaxaICSAP) ~ 0,
+                               dados$TaxaICSAP >= median(dados$TaxaICSAP) ~ 1)
+dados$TaxaANEMIAcat = case_when(dados$TaxaANEMIA < median(dados$TaxaANEMIA) ~ 0,
+                                dados$TaxaANEMIA >= median(dados$TaxaANEMIA) ~ 1)
+dados$TaxaDEFICIENCIAS_NUTRICIONAIScat = case_when(dados$TaxaDEFICIENCIAS_NUTRICIONAIS < median(dados$TaxaDEFICIENCIAS_NUTRICIONAIS) ~ 0,
+                                                   dados$TaxaDEFICIENCIAS_NUTRICIONAIS >= median(dados$TaxaDEFICIENCIAS_NUTRICIONAIS) ~ 1)
+dados$TaxaDIABETES_MELITUScat = case_when(dados$TaxaDIABETES_MELITUS < median(dados$TaxaDIABETES_MELITUS) ~ 0,
+                                          dados$TaxaDIABETES_MELITUS >= median(dados$TaxaDIABETES_MELITUS) ~ 1)
+dados$TaxaHIPERTENSAOcat = case_when(dados$TaxaHIPERTENSAO < median(dados$TaxaHIPERTENSAO) ~ 0,
+                                     dados$TaxaHIPERTENSAO >= median(dados$TaxaHIPERTENSAO) ~ 1)
+
 ####============
 #### Taxa ICSAP
 ####============
-hist(dados$TaxaANEMIA)
 DescritivaNum(dados$TaxaICSAP)
 DescritivaNum(dados$TaxaANEMIA)
 DescritivaNum(dados$TaxaDEFICIENCIAS_NUTRICIONAIS)
 DescritivaNum(dados$TaxaDIABETES_MELITUS)
 DescritivaNum(dados$TaxaHIPERTENSAO)
 
-taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop*Nota,
+taxa_multi1 = geeglm(TaxaICSAPcat ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaICSAPcat,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cidade,Nota) %>% na.omit(), 
+                     family = binomial(link = "logit"), corstr = "exchangeable");TabelaGEEGama(taxa_multi1)
+summary(taxa_multi1)
+TabelaGEEGama(taxa_multi1)
+
+DescritivaNum(dados$TaxaICSAP)
+hist(dados$IMC_i_cat_excesso_prop)
+hist(dados$Nota)
+
+taxa_multi1 = geeglm(TaxaICSAP ~ log(IMC_i_cat_excesso_prop)*Nota,
                     id = cidade, data = dados %>% 
-                      select(TaxaICSAP,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,cidade,
-                             Nota) %>% na.omit(), 
+                      select(TaxaICSAP,IMC_i_cat_excesso_prop,cidade,Nota) %>% na.omit(), 
                     family = Gamma(link = "log"), corstr = "exchangeable")
 summary(taxa_multi1)
 TabelaGEEGama(taxa_multi1)
