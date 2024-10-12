@@ -407,12 +407,13 @@ dados_Sul = dados %>% filter(Região == 'Sul')
 # Tabela3Desc = do.call(rbind,lapply(variaveis, function(variavel) {DescritivaNumMais2Grupos(dados_NT[[variavel]], dados_NT$ano)}))
 # Tabela4Desc = do.call(rbind,lapply(variaveis, function(variavel) {DescritivaNumMais2Grupos(dados_Sud[[variavel]], dados_Sud$ano)}))
 # Tabela5Desc = do.call(rbind,lapply(variaveis, function(variavel) {DescritivaNumMais2Grupos(dados_Sul[[variavel]], dados_Sul$ano)}))
- 
+# Tabela6Desc = do.call(rbind,lapply(variaveis, function(variavel) {DescritivaNumMais2Grupos(dados[[variavel]], dados$ano)}))
 # write.xlsx(Tabela1Desc %>% as.data.frame(), 'Tabela 1 Desc.xlsx', rowNames = T)
 # write.xlsx(Tabela2Desc %>% as.data.frame(), 'Tabela 2 Desc.xlsx', rowNames = T)
 # write.xlsx(Tabela3Desc %>% as.data.frame(), 'Tabela 3 Desc.xlsx', rowNames = T)
 # write.xlsx(Tabela4Desc %>% as.data.frame(), 'Tabela 4 Desc.xlsx', rowNames = T)
 # write.xlsx(Tabela5Desc %>% as.data.frame(), 'Tabela 5 Desc.xlsx', rowNames = T)
+# write.xlsx(Tabela6Desc %>% as.data.frame(), 'Tabela 6 Desc.xlsx', rowNames = T)
 
 ####====================================
 #### Comparações por ano - 20 a 79 anos
@@ -1245,6 +1246,56 @@ dados$TaxaDIABETES_MELITUScat = case_when(dados$TaxaDIABETES_MELITUS < median(da
 dados$TaxaHIPERTENSAOcat = case_when(dados$TaxaHIPERTENSAO < median(dados$TaxaHIPERTENSAO) ~ 0,
                                      dados$TaxaHIPERTENSAO >= median(dados$TaxaHIPERTENSAO) ~ 1)
 
+if(!require(Rcpp)){ install.packages("Rcpp"); require(Rcpp)}#Biblioteca dependente da Matchit
+if(!require(MatchIt)){ install.packages("MatchIt"); require(MatchIt)}#Aplicação da função matchit
+matchit_TaxaICSAPcat = matchit(TaxaICSAPcat ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + factor(ano),
+                               data = dados %>% select(TaxaICSAPcat,TaxaICSAP,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,
+                                                       IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,
+                                                       diab_prop,Nota,ano,cidade) %>% na.omit(), 
+                               method = 'nearest', distance = "glm", ratio = 1)
+md_matchit_TaxaICSAPcat = match.data(matchit_TaxaICSAPcat)
+taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
+                     id = cidade, data = md_matchit_TaxaICSAPcat %>% 
+                       select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cidade,Nota) %>% na.omit(), 
+                     family = Gamma(link = "log"), corstr = "exchangeable");TabelaGEEGama(taxa_multi1)
+
+matchit_TaxaANEMIAcat = matchit(TaxaANEMIAcat ~ sexo_M_prop + idade_60a79_prop + anos_de_estudo + plano_saude_nao_prop + factor(ano),
+                               data = dados %>% select(TaxaANEMIAcat,TaxaANEMIA,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,
+                                                       IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,
+                                                       diab_prop,Nota,ano,cidade) %>% na.omit(), 
+                               method = 'nearest', distance = "glm", ratio = 1)
+md_matchit_TaxaANEMIAcat = match.data(matchit_TaxaANEMIAcat)
+anemia_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                     id = cidade, data = md_matchit_TaxaANEMIAcat %>% 
+                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cidade,Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.1), 
+                     family = Gamma(link = "log"), corstr = "exchangeable");TabelaGEEGama(anemia_multi1)
+
+anemia_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                       id = cidade, data = md_matchit_TaxaANEMIAcat %>% 
+                         select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                                cidade,Nota) %>% na.omit(), 
+                       family = gaussian(link = 'identity'), corstr = "exchangeable");TabelaGEENormal(anemia_multi1)
+
+anemia_multi1 = glm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                       data = md_matchit_TaxaANEMIAcat %>% 
+                         select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                                cidade,Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.1) %>% filter(ano == 2010), 
+                       family = Gamma(link = 'log'));TabelaGEEGama(anemia_multi1)
+
+anemia_multi1 = glm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                    data = md_matchit_TaxaANEMIAcat %>% 
+                      select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                             cidade,Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.1) %>% filter(ano == 2011), 
+                    family = Gamma(link = 'log'));TabelaGEEGama(anemia_multi1)
+
+anemia_multi1 = glm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                    data = md_matchit_TaxaANEMIAcat %>% 
+                      select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                             cidade,Nota) %>% na.omit() %>% mutate(TaxaANEMIA = TaxaANEMIA + 0.1) %>% filter(ano == 2012), 
+                    family = Gamma(link = 'log'));TabelaGEEGama(anemia_multi1)
+
 ####============
 #### Taxa ICSAP
 ####============
@@ -1254,17 +1305,15 @@ DescritivaNum(dados$TaxaDEFICIENCIAS_NUTRICIONAIS)
 DescritivaNum(dados$TaxaDIABETES_MELITUS)
 DescritivaNum(dados$TaxaHIPERTENSAO)
 
-taxa_multi1 = geeglm(TaxaICSAPcat ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
-                     id = cidade, data = dados %>% 
-                       select(TaxaICSAPcat,Indicador,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
-                              cidade,Nota) %>% na.omit(), 
-                     family = binomial(link = "logit"), corstr = "exchangeable");TabelaGEEGama(taxa_multi1)
-summary(taxa_multi1)
-TabelaGEEGama(taxa_multi1)
+DescritivaNum(dados$IMC_i_cat_excesso_prop)
+DescritivaNum(dados$flvreg_prop)
+DescritivaNum(dados$flvreco_prop)
+DescritivaNum(dados$refritl5_prop)
+DescritivaNum(dados$feijao5_prop)
+DescritivaNum(dados$hart_prop)
+DescritivaNum(dados$diab_prop)
+DescritivaNum(dados$Nota)
 
-DescritivaNum(dados$TaxaICSAP)
-hist(dados$IMC_i_cat_excesso_prop)
-hist(dados$Nota)
 
 taxa_multi1 = geeglm(TaxaICSAP ~ log(IMC_i_cat_excesso_prop)*Nota,
                     id = cidade, data = dados %>% 
