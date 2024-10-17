@@ -851,7 +851,7 @@ Tabela10 = rbind(cbind(Hmisc::rcorr(dados_corr2016, type = 'spearman')$r, Hmisc:
                  cbind(Hmisc::rcorr(dados_corr2017, type = 'spearman')$r, Hmisc::rcorr(dados_corr2017, type = 'spearman')$P),
                  cbind(Hmisc::rcorr(dados_corr2018, type = 'spearman')$r, Hmisc::rcorr(dados_corr2018, type = 'spearman')$P),
                  cbind(Hmisc::rcorr(dados_corr2019, type = 'spearman')$r, Hmisc::rcorr(dados_corr2019, type = 'spearman')$P))
-#write.xlsx(Tabela10 %>% as.data.frame(),'Tabela 10.xlsx', rowNames = T)
+write.xlsx(Tabela10 %>% as.data.frame(),'Tabela 10.xlsx', rowNames = T)
 
 ####=========
 #### Modelos
