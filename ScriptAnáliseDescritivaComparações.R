@@ -1232,6 +1232,60 @@ Tabela18.2 = TabelaGEENormal(Ind_multi)
 # qqnorm(residuals(Ind_multi, type = "pearson"))
 # qqline(residuals(Ind_multi, type = "pearson"), col = "red")
 
+####===============
+#### Clusterização
+####===============
+library(dtwclust)
+library(zoo)
+library(mice)
+
+dados_imputacao = dados %>% group_by(cidade) %>% mutate(feijao5_prop = na.approx(feijao5_prop, na.rm = FALSE)) %>% 
+  select(ano,cidade,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+         sexo_M_prop,idade_60a79_prop,civil_uniaoest_casado_prop,anos_de_estudo,plano_saude_nao_prop,
+         TaxaICSAP,TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO,Nota)
+
+predictorMatrix = matrix(0, ncol = ncol(dados_imputacao), nrow = ncol(dados_imputacao))
+colnames(predictorMatrix) = colnames(dados_imputacao)
+rownames(predictorMatrix) = colnames(dados_imputacao)
+predictorMatrix["Nota", ] = 1
+predictorMatrix["Nota", "Nota"] = 0
+imputacao = mice(dados_imputacao, method = "rf", predictorMatrix = predictorMatrix, m = 5, seed = 123)
+dados_imputados = complete(imputacao)
+
+dados_cluster = dados_imputados %>% group_by(cidade) %>% 
+  pivot_wider(names_from = ano, values_from = c(IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                                                sexo_M_prop,idade_60a79_prop,civil_uniaoest_casado_prop,anos_de_estudo,plano_saude_nao_prop,
+                                                TaxaICSAP,TaxaANEMIA,TaxaDEFICIENCIAS_NUTRICIONAIS,TaxaDIABETES_MELITUS,TaxaHIPERTENSAO,Nota))
+dados_series = dados_cluster %>% ungroup() %>% select(-cidade) %>% mutate(across(everything(), as.numeric))
+clustering_4 = tsclust(dados_series, type = "partitional", k = 4, distance = "dtw_basic")
+dados_cluster$cluster = clustering_4@cluster
+
+dados_cluster1 = dados_cluster %>% pivot_longer(cols = -c(cidade, cluster), names_to = c("variavel", "ano"), names_pattern = "(.*)_(\\d+)") %>%
+  pivot_wider(names_from = variavel, values_from = value)
+
+dados_cluster_agg = dados_cluster1 %>% select(-cidade) %>% group_by(cluster, ano) %>% 
+  summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = 'drop') %>% as.data.frame()
+
+taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
+                     id = cidade, data = dados %>% 
+                       select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cidade,Nota) %>% na.omit(), 
+                     family = Gamma(link = "log"), corstr = "exchangeable");TabelaGEEGama(taxa_multi1)
+
+taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + Nota,
+                     id = cluster, data = dados_cluster_agg %>% 
+                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cluster,Nota) %>% na.omit(), 
+                     family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
+
+
+dados_cluster_agg %>% 
+  select(IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+         Nota) %>% as.matrix()
+cor(dados_cluster_agg %>% 
+      select(IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+             Nota) %>% as.matrix(), use = "complete.obs")
+
 ####==============================
 #### Categorizando os indicadores
 ####==============================
