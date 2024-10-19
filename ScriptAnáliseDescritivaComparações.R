@@ -1263,8 +1263,16 @@ dados_cluster$cluster = clustering_4@cluster
 dados_cluster1 = dados_cluster %>% pivot_longer(cols = -c(cidade, cluster), names_to = c("variavel", "ano"), names_pattern = "(.*)_(\\d+)") %>%
   pivot_wider(names_from = variavel, values_from = value)
 
-dados_cluster_agg = dados_cluster1 %>% select(-cidade) %>% group_by(cluster, ano) %>% 
-  summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = 'drop') %>% as.data.frame()
+dados_cluster_agg <- dados_cluster1 %>% select(-cidade) %>% group_by(cluster, ano) %>% 
+  summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = 'drop') %>% as.data.frame()
+
+dados_cluster_agg = dados_cluster_agg %>% 
+  mutate(IMC_i_cat_excesso_prop_inv = 1-IMC_i_cat_excesso_prop,
+         refritl5_prop_inv = 1-refritl5_prop,
+         hart_prop_inv = 1-hart_prop,
+         diab_prop_inv = 1-diab_prop) %>% 
+  mutate(Indicador = rowMeans(select(., IMC_i_cat_excesso_prop_inv, flvreg_prop, flvreco_prop, 
+                                     refritl5_prop_inv, feijao5_prop, hart_prop_inv, diab_prop_inv), na.rm = TRUE))
 
 taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
                      id = cidade, data = dados %>% 
@@ -1279,12 +1287,6 @@ taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop + refritl5_prop + feijao5_prop + 
                      family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
 
-dados_cluster_agg %>% 
-  select(IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
-         Nota) %>% as.matrix()
-cor(dados_cluster_agg %>% 
-      select(IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
-             Nota) %>% as.matrix(), use = "complete.obs")
 
 ####==============================
 #### Categorizando os indicadores
