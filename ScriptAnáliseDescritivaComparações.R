@@ -1263,7 +1263,7 @@ dados_cluster$cluster = clustering_4@cluster
 dados_cluster1 = dados_cluster %>% pivot_longer(cols = -c(cidade, cluster), names_to = c("variavel", "ano"), names_pattern = "(.*)_(\\d+)") %>%
   pivot_wider(names_from = variavel, values_from = value)
 
-dados_cluster_agg <- dados_cluster1 %>% select(-cidade) %>% group_by(cluster, ano) %>% 
+dados_cluster_agg = dados_cluster1 %>% select(-cidade) %>% group_by(cluster, ano) %>% 
   summarise(across(where(is.numeric), \(x) mean(x, na.rm = TRUE)), .groups = 'drop') %>% as.data.frame()
 
 dados_cluster_agg = dados_cluster_agg %>% 
@@ -1274,15 +1274,22 @@ dados_cluster_agg = dados_cluster_agg %>%
   mutate(Indicador = rowMeans(select(., IMC_i_cat_excesso_prop_inv, flvreg_prop, flvreco_prop, 
                                      refritl5_prop_inv, feijao5_prop, hart_prop_inv, diab_prop_inv), na.rm = TRUE))
 
-taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop + flvreg_prop + flvreco_prop + refritl5_prop + feijao5_prop + hart_prop + diab_prop + Nota,
+taxa_multi1 = geeglm(TaxaICSAP ~ flvreco_prop*Nota + refritl5_prop*Nota + Nota,
                      id = cidade, data = dados %>% 
                        select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
                               cidade,Nota) %>% na.omit(), 
-                     family = Gamma(link = "log"), corstr = "exchangeable");TabelaGEEGama(taxa_multi1)
+                     family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
+
+taxa_multi1 = geeglm(TaxaICSAP ~ IMC_i_cat_excesso_prop*Nota + flvreg_prop*Nota + flvreco_prop*Nota + refritl5_prop*Nota + 
+                       feijao5_prop*Nota + hart_prop*Nota + diab_prop*Nota + Nota,
+                     id = cluster, data = dados_cluster_agg %>% 
+                       select(TaxaICSAP,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop,feijao5_prop,hart_prop,diab_prop,
+                              cluster,Nota) %>% na.omit(), 
+                     family = Gamma(link = "log"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
 dados_cluster_agg %>%
   select(IMC_i_cat_excesso_prop, flvreg_prop, flvreco_prop, refritl5_prop, feijao5_prop, hart_prop, 
-         diab_prop, cluster, Nota) %>%
+         diab_prop, Nota, TaxaICSAP, TaxaANEMIA, TaxaDEFICIENCIAS_NUTRICIONAIS, TaxaDIABETES_MELITUS, TaxaHIPERTENSAO) %>%
   mutate(across(everything(), as.numeric)) %>%
   na.omit() %>%
   as.matrix() %>%
@@ -1295,48 +1302,25 @@ dados_cluster_agg %>%
   as.matrix() %>%
   cor()
 
-#interação com nota - RUIMMMMMMMMMMM
-taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*Nota + refritl5_prop_inv*Nota + feijao5_prop*Nota,
+taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*Nota + refritl5_prop_inv + Nota + factor(ano),
                      id = cluster, data = dados_cluster_agg %>% 
                        select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
                               cluster,Nota) %>% na.omit(), 
                      family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
-#interação com nota + ano
-taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*Nota + refritl5_prop_inv + factor(ano),
+taxa_multi1 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ flvreco_prop + refritl5_prop_inv + feijao5_prop*Nota + Nota + factor(ano),
                      id = cluster, data = dados_cluster_agg %>% 
-                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
+                       select(TaxaDEFICIENCIAS_NUTRICIONAIS,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
                               cluster,Nota) %>% na.omit(), 
                      family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
-#interação variáveis + nota
-taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*refritl5_prop_inv + flvreco_prop + feijao5_prop*refritl5_prop_inv + Nota,
+taxa_multi1 = geeglm(TaxaDEFICIENCIAS_NUTRICIONAIS ~ flvreco_prop*Nota + refritl5_prop_inv*Nota + feijao5_prop*Nota + Nota + factor(ano),
                      id = cluster, data = dados_cluster_agg %>% 
-                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
-                              cluster,Nota) %>% na.omit(), 
-                     family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
-
-#interação variáveis + nota + ano
-taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*refritl5_prop_inv + flvreco_prop*feijao5_prop + feijao5_prop + Nota + factor(ano),
-                     id = cluster, data = dados_cluster_agg %>% 
-                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
-                              cluster,Nota) %>% na.omit(), 
-                     family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
-
-#interação variáveis + ano
-taxa_multi1 = geeglm(TaxaANEMIA ~ flvreco_prop*refritl5_prop_inv + flvreco_prop*feijao5_prop + feijao5_prop + factor(ano),
-                     id = cluster, data = dados_cluster_agg %>% 
-                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
+                       select(TaxaDEFICIENCIAS_NUTRICIONAIS,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
                               cluster,Nota) %>% na.omit(), 
                      family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
 
-#interação variáveis sem nota 
-taxa_multi1 = geeglm(TaxaANEMIA ~ refritl5_prop_inv + flvreco_prop + refritl5_prop_inv*feijao5_prop,
-                     id = cluster, data = dados_cluster_agg %>% 
-                       select(TaxaANEMIA,ano,IMC_i_cat_excesso_prop,flvreg_prop,flvreco_prop,refritl5_prop_inv,feijao5_prop,hart_prop,diab_prop,
-                              cluster,Nota) %>% na.omit(), 
-                     family = gaussian(link = "identity"), corstr = "exchangeable");TabelaGEENormal(taxa_multi1)
 
 
 ####==============================
