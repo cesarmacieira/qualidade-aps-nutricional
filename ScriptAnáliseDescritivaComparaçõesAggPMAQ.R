@@ -1130,7 +1130,7 @@ hart_bi6 = geeglm(hart_prop ~ factor(Ciclo), id = cidade,
                   data = dados_agg %>% select(hart_prop,Ciclo,cidade) %>% na.omit(), 
                   family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-hart_multi = geeglm(hart_prop ~ sexo_M_prop*Nota + idade_60a79_prop + anos_de_estudo*Nota + factor(Ciclo),
+hart_multi = geeglm(hart_prop ~ idade_60a79_prop + anos_de_estudo*Nota,
                     id = cidade, data = dados_agg %>% 
                       select(hart_prop,Ciclo,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(),  
                     family = gaussian(link = 'identity'), corstr = "exchangeable")
@@ -1220,7 +1220,7 @@ Ind_bi6 = geeglm(Indicador ~ factor(Ciclo), id = cidade,
                  data = dados_agg %>% select(Indicador,Ciclo,cidade) %>% na.omit(), 
                  family = gaussian(link = 'identity'), corstr = "exchangeable")
 
-Ind_multi = geeglm(Indicador ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + anos_de_estudo + plano_saude_nao_prop + factor(Ciclo), 
+Ind_multi = geeglm(Indicador ~ sexo_M_prop*Nota + idade_60a79_prop*Nota + plano_saude_nao_prop + factor(Ciclo), 
                    id = cidade, data = dados_agg %>% 
                      select(Indicador,Ciclo,sexo_M_prop,idade_60a79_prop,anos_de_estudo,plano_saude_nao_prop,Nota,cidade) %>% na.omit(), 
                    family = gaussian(link = 'identity'), corstr = "exchangeable")
